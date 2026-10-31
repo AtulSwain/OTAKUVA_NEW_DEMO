@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ThemePicker } from '../ui/ThemePicker';
+import { InstallAppButton } from '../pwa/InstallPrompt';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import {
@@ -546,6 +547,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
                       <span>Control center</span>
                     </Link>
                   )}
+
+                  {/* Only shown when this device/browser can install the app. */}
+                  <InstallAppButton className={styles.dropdownLink} onDone={() => setIsUserMenuOpen(false)} />
 
                   <div className={styles.dropdownDivider} />
                   <div className={styles.themeRow}>

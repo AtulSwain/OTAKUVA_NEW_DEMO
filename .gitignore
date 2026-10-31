@@ -78,3 +78,6 @@ prisma/*.backup*
 
 # Neon production database address (never commit)
 .env.neon
+
+# Files for pasting into Vercel (contain secrets, never commit)
+.env.vercel-*

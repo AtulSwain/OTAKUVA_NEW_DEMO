@@ -14,7 +14,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    orientation: 'portrait',
+    // No orientation lock: the installed app runs on phones, tablets and laptops.
     background_color: '#141416',
     theme_color: '#141416',
     categories: ['entertainment', 'lifestyle', 'social'],
