@@ -68,7 +68,7 @@ export default async function AnimeDetailPage({ params }: { params: { id: string
   const seasonsData = await safeJson(seasonsRes);
   const episodesData = await safeJson(episodesRes);
 
-  const anime = animeData?.anime ?? null;
+  const anime = animeData?.anime ?? animeData?.data?.anime ?? animeData?.data ?? null;
 
   let characters = anime?.characters || [];
   if (Array.isArray(charData?.characters)) characters = charData.characters;
@@ -88,7 +88,7 @@ export default async function AnimeDetailPage({ params }: { params: { id: string
   const canPinReviews = Boolean(revData?.canPin);
   const communityTags = Array.isArray(revData?.communityTags) ? revData.communityTags : [];
   // Read directly (no HTTP hop); a failure just hides the bar.
-  const canonicalId = animeData?.anime?.id || animeData?.id;
+  const canonicalId = anime?.id || animeData?.data?.id || animeData?.id;
   const [seasonSeries, facts] = canonicalId
     ? await Promise.all([getSeasonSeries(canonicalId).catch(() => null), getAnimeFacts(canonicalId).catch(() => null)])
     : [null, null];
