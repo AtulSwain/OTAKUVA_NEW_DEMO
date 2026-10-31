@@ -20,7 +20,14 @@ export const AuthModal: React.FC = () => {
   // window was opened for an action (rate, follow…), which then continues.
   // Becoming a creator is the explicit step on /creator.
   const afterSignIn = (res: AuthResult) => {
-    if (!intentMessage && isCreator(res.role)) router.push('/creator');
+    if (!intentMessage && isCreator(res.role)) {
+      router.push('/creator');
+      return;
+    }
+    // Re-render the server parts of the current page (homepage welcome,
+    // "You are tracking", …) with the new session instead of leaving the
+    // signed-out version on screen until a manual refresh.
+    router.refresh();
   };
 
   return (

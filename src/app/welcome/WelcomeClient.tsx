@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { AuthForm, type AuthMode } from '../../components/auth/AuthForm';
 import { GUEST_COOKIE, GUEST_COOKIE_MAX_AGE } from '../../lib/landing/guest';
@@ -25,7 +24,6 @@ const HEADINGS: Record<AuthMode, { title: string; lede: string }> = {
  * sign-up + the existing creator upgrade). Signing in → homepage.
  */
 export function WelcomeClient({ posters }: { posters: LandingPoster[] }) {
-  const router = useRouter();
   const [mode, setMode] = useState<AuthMode>('login');
   const [leaving, setLeaving] = useState(false);
 
@@ -41,8 +39,11 @@ export function WelcomeClient({ posters }: { posters: LandingPoster[] }) {
 
   const goHome = () => {
     setLeaving(true);
-    router.replace('/');
-    router.refresh();
+    // A full page load, not a client-side route change: the homepage is
+    // rendered on the server from the session cookie that was just set, and a
+    // soft navigation could reuse the signed-out render (or the cached
+    // "/ → /welcome" redirect) until the user refreshed by hand.
+    window.location.replace('/');
   };
 
   const browseAsGuest = () => {
