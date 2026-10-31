@@ -74,3 +74,7 @@ prisma/*.backup*
 
 # Production database address (never commit)
 .env.render
+.neon
+
+# Neon production database address (never commit)
+.env.neon
