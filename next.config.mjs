@@ -49,6 +49,10 @@ const nextConfig = {
     // onRequestError) to actually load — default-on from Next.js 15, so
     // this line is a harmless no-op once this repo upgrades past it.
     instrumentationHook: true,
+    // Load bullmq from node_modules at runtime instead of bundling it, so
+    // the build stops warning about its optional @valkey/valkey-glide
+    // add-on (not installed, not used — the queue runs on ioredis).
+    serverComponentsExternalPackages: ['bullmq'],
   },
 };
 
