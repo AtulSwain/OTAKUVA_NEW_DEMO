@@ -36,6 +36,7 @@ import { PremiereCountdown } from '../../../components/anime/PremiereCountdown';
 import { RetentionSummary } from '../../../components/anime/RetentionSummary';
 import { HypeMeter } from '../../../components/hype/HypeMeter';
 import { CommissionProducts } from '../../../components/monetization/CommissionProducts';
+import { SponsorAdRail } from '../../../components/monetization/SponsorAdRail';
 import { WriteReviewModal } from '../../../components/review/WriteReviewModal';
 import { TrailerModal } from '../../../components/ui/TrailerModal';
 import { useAuth } from '../../../context/AuthContext';
@@ -569,6 +570,7 @@ export default function AnimeDetailClient({
         <div className={styles.layoutGrid}>
           {/* LEFT / MAIN COLUMN: Story, Episodes, Characters, Staff, Timeline, Franchise, Reviews */}
           <div className={styles.mainCol}>
+            <SponsorAdRail placement="ANIME_PAGE" />
             {/* 0. NOT OUT YET — the hype meter and premiere countdown lead the page,
                  above the season bar. Ratings, reviews and the episode guide
                  open once it premieres. */}
@@ -750,8 +752,6 @@ export default function AnimeDetailClient({
               </section>
             )}
 
-            <CommissionProducts animeId={anime.id} />
-
             {/* 7b. CHARACTERS & VOICE CAST */}
             <section id="characters" className={styles.contentSection} aria-label="Characters & Voice Cast">
               <CharacterPreview
@@ -847,6 +847,8 @@ export default function AnimeDetailClient({
                 <AnimeNewsList news={news} />
               </section>
             )}
+
+            <CommissionProducts animeId={anime.id} />
           </div>
 
         </div>

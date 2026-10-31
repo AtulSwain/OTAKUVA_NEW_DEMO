@@ -131,6 +131,25 @@ describe('creators and their followers', () => {
     await rate(popular, anime.id, 8.8);
     await rate(popular, adult.id, 7);
     await rate(member, anime.id, 9);
+    const retentionRatedAnime = [anime];
+    for (let i = 0; i < 3; i++) retentionRatedAnime.push(await createAnime({ status: 'Finished Airing', episodes: 12 }));
+    for (const [index, ratedAnime] of retentionRatedAnime.entries()) {
+      await prisma.episodeRating.create({
+        data: {
+          userId: popular.id,
+          animeId: ratedAnime.id,
+          episodeNumber: 1,
+          retention: 85,
+          updatedAt: new Date(Date.UTC(2026, 0, index + 1)),
+        },
+      });
+    }
+    await prisma.user.update({ where: { id: popular.id }, data: { lastSeenAt: new Date() } });
+    const reviewBody = 'A careful look at this story that is intentionally long enough to verify the compact preview stays clipped in the creator spotlight without exposing the full review.';
+    assert.equal((await creatorReviewPOST(request('POST', '/api/creator/reviews', {
+      as: popular,
+      body: { animeId: anime.slug, title: 'A thoughtful review', body: reviewBody, publish: true },
+    }))).status, 201);
 
     const r = await read(await creatorsDirGET(request('GET', '/api/creators?limit=60&feed=30') as any));
     assert.equal(r.status, 200);
@@ -139,9 +158,25 @@ describe('creators and their followers', () => {
     assert.ok(!names.includes(member.username), 'members are not listed');
     assert.ok(names.indexOf(popular.username) < names.indexOf(quiet.username), 'most followed first');
     const mine = r.body.feed.filter((f: any) => f.creator.username === popular.username);
-    assert.equal(mine.length, 1, 'adult titles stay out of the feed');
-    assert.equal(mine[0].kind, 'RATED');
-    assert.equal(mine[0].score, 8.8);
+    assert.ok(mine.some((f: any) => f.kind === 'JOINED'), 'creator joins are shown');
+    const review = mine.find((f: any) => f.kind === 'REVIEWED');
+    assert.ok(review, 'published creator reviews are shown');
+    assert.equal(review.review.title, 'A thoughtful review');
+    assert.ok(review.review.excerpt.length <= 110, 'review preview stays compact');
+    assert.ok(!mine.some((f: any) => f.anime?.slug === adult.slug), 'adult titles stay out of the feed');
+    const popularCard = r.body.creators.find((c: any) => c.username === popular.username);
+    assert.equal(popularCard.latestActivity, 'REVIEWED');
+    assert.equal(popularCard.isOnline, true);
+    assert.equal(popularCard.ratedAnime.length, 3, 'shows only three related anime');
+    assert.deepEqual(
+      popularCard.ratedAnime.map((a: any) => a.slug),
+      retentionRatedAnime.slice(1).reverse().map((a) => a.slug),
+      'a newly rated fourth anime replaces the oldest item',
+    );
+    assert.equal(popularCard.latestReview.title, 'A thoughtful review');
+    assert.equal(popularCard.latestReview.animeSlug, anime.slug);
+    assert.ok(popularCard.latestReview.excerpt.length <= 110);
+    assert.equal(r.body.creators.find((c: any) => c.username === quiet.username).isOnline, false);
     assert.ok(!r.body.feed.some((f: any) => f.creator.username === member.username));
   });
 

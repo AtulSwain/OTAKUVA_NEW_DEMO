@@ -34,6 +34,16 @@ wrong at 2am is how a bad deploy becomes a data-loss incident:
 
 ## 1. Prerequisites (before you start)
 
+- [ ] For Vercel, configure the production runtime environment before
+      promoting a deployment. In particular, `DATABASE_URL` must point to
+      the production PostgreSQL database; the build can compile without it,
+      but the site cannot serve database-backed pages or sign-ins. Keep
+      secrets in Vercel's Environment Variables, not in GitHub or source.
+      After deployment, verify `GET /api/health/ready` returns `HEALTHY`.
+- [ ] When deploying a Prisma schema change, take the required database
+      backup and apply checked-in migrations with `npx prisma migrate deploy`
+      before the new app version depends on them. `prisma generate` creates
+      the client but does not apply schema migrations.
 - [ ] CI is green on the exact commit being deployed: typecheck, lint,
       and `npm test` all pass (`.github/workflows/ci.yml`'s `test` job —
       see RUNBOOK §9). Don't deploy a commit CI hasn't run against.

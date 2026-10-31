@@ -1,6 +1,58 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { ExternalLink, ShoppingBag } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import styles from './monetization.module.css';
-type Product = { id: string; title: string; merchant: string; url: string; imageUrl: string | null; price: string | null; disclosure: string | null };
-export function CommissionProducts({ animeId }: { animeId: string }) { const [products, setProducts] = useState<Product[]>([]); useEffect(() => { fetch(`/api/anime/${encodeURIComponent(animeId)}/commission-products`).then((r) => r.ok ? r.json() : null).then((d) => setProducts(d?.products || [])).catch(() => {}); }, [animeId]); if (!products.length) return null; return <section className={styles.products} aria-label="Recommended products"><div className={styles.productsHead}><div><p className={styles.kicker}>Shop the series</p><h2>Recommended products</h2></div><ShoppingBag size={20} /></div><div className={styles.productGrid}>{products.map((p) => <a className={styles.productCard} key={p.id} href={p.url} target="_blank" rel="sponsored noopener noreferrer">{p.imageUrl && <img src={p.imageUrl} alt="" /> }<span className={styles.productBody}><strong>{p.title}</strong><small>{p.merchant}{p.price ? ` · ${p.price}` : ''}</small><em>View product <ExternalLink size={12} /></em></span></a>)}</div><p className={styles.disclosure}>{products[0].disclosure || 'OTAKUVA may earn from qualifying purchases.'}</p></section>; }
+type Product = { id: string; title: string | null; merchant: string | null; url: string | null; imageUrl: string | null; videoUrl: string | null; price: string | null; disclosure: string | null };
+export function CommissionProducts({ animeId }: { animeId: string }) {
+  const [products, setProducts] = useState<Product[]>([]);
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/anime/${encodeURIComponent(animeId)}/commission-products`, { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Could not load commission products.');
+        return response.json();
+      })
+      .then((data) => { if (active) setProducts(Array.isArray(data.products) ? data.products : []); })
+      .catch(() => { if (active) setProducts([]); });
+    return () => { active = false; };
+  }, [animeId]);
+  if (!products.length) return null;
+  const withMedia = products.filter((product) => Boolean(product.imageUrl || product.videoUrl));
+  if (!withMedia.length) return null;
+  return (
+    <section className={styles.products} aria-labelledby="commission-products-title">
+      <header className={styles.productsHead}>
+        <p className={styles.productsKicker}>Commission</p>
+        <h2 id="commission-products-title" className={styles.productsTitle}>Partner picks</h2>
+      </header>
+      <div className={styles.productGrid}>
+        {withMedia.map((product) => {
+          const label = product.title || 'Commission media';
+          const media = product.videoUrl ? (
+            <video src={product.videoUrl} poster={product.imageUrl || undefined} autoPlay muted loop playsInline aria-label={label} />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            product.imageUrl ? <img src={product.imageUrl} alt={label} loading="lazy" /> : null
+          );
+          return (
+            <article className={styles.productCard} key={product.id}>
+              <div className={styles.productArt}>{media}</div>
+              {(product.title || product.price || product.url) && (
+                <div className={styles.productInfo}>
+                  {product.title && <strong>{product.title}</strong>}
+                  {product.price && <span>{product.price}</span>}
+                  {product.url && (
+                    <a href={product.url} target="_blank" rel="sponsored noopener noreferrer">
+                      <ExternalLink size={14} /> Visit {product.merchant || 'product'}
+                    </a>
+                  )}
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+      {withMedia.some((product) => Boolean(product.url)) && <p className={styles.disclosure}>{withMedia.find((product) => product.url)?.disclosure || 'OTAKUVA may earn a commission from qualifying purchases.'}</p>}
+    </section>
+  );
+}

@@ -69,3 +69,8 @@ prisma/*.backup*
 # Local tool settings / scratch output
 /.claude/
 /Claude outputs/
+
+/.vercel
+
+# Production database address (never commit)
+.env.render
