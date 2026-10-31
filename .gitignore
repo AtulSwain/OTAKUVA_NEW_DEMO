@@ -71,3 +71,6 @@ prisma/*.backup*
 /Claude outputs/
 
 /.vercel
+
+# Production database address (never commit)
+.env.render

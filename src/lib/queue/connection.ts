@@ -21,6 +21,16 @@ import { logger } from '../logger';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
+/**
+ * True when there is a Redis to talk to: an explicit REDIS_URL, or local
+ * development (which falls back to 127.0.0.1). A production deploy without
+ * REDIS_URL (e.g. Vercel with no Redis add-on) has none, so optional users
+ * like the L2 page cache should skip Redis instead of retrying localhost.
+ */
+export function isRedisConfigured(): boolean {
+  return Boolean(process.env.REDIS_URL) || process.env.NODE_ENV !== 'production';
+}
+
 let producerConnection: IORedis | null = null;
 let workerConnection: IORedis | null = null;
 

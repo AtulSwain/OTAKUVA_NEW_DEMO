@@ -55,7 +55,7 @@
  */
 
 import type { Redis as IORedisClient } from 'ioredis';
-import { getProducerRedisConnection } from '../queue/connection';
+import { getProducerRedisConnection, isRedisConfigured } from '../queue/connection';
 import { logger } from '../logger';
 
 interface CacheEntry<T> {
@@ -455,6 +455,7 @@ export class CacheManager {
   }
 
   private static getRedis(): IORedisClient | null {
+    if (!isRedisConfigured()) return null;
     try {
       return getProducerRedisConnection();
     } catch {
