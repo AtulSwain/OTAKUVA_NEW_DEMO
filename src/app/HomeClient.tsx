@@ -37,6 +37,7 @@ import { CommunityScoreBadge } from '../components/rating/CommunityScoreBadge';
 import { VerdictCount } from '../components/rating/VerdictCount';
 import { StudioCardGrid } from '../components/studios/StudiosDirectory';
 import { SponsorAdRail } from '../components/monetization/SponsorAdRail';
+import type { CreatorDirectoryData } from '../lib/creator/creatorDirectory';
 
 type HomeAnime = Anime & { posterUrl?: string };
 
@@ -106,10 +107,16 @@ export function HomeClient({
   initialSections,
   genreArt = [],
   spotlight = null,
+  creatorData,
+  initialFollowedCreators = [],
+  initialFollowedUsername = null,
 }: {
   initialSections: HomeData;
   genreArt?: GenreArtwork[];
   spotlight?: BrowseItem | null;
+  creatorData: CreatorDirectoryData;
+  initialFollowedCreators?: string[];
+  initialFollowedUsername?: string | null;
 }) {
   const { user, openAuthModal } = useAuth();
   const { getItem: getLibraryItem } = useLibrary();
@@ -190,13 +197,15 @@ export function HomeClient({
           </section>
         )}
 
-        {/* Content creators: story-style circles + what they recently rated/reviewed —
-            right below "You are tracking" (owner, 2026-10-25). */}
-        <CreatorsSpotlight />
+        {fp && <LatestReviews reviews={fp.reviews} episodeNotes={fp.creatorEpisodeNotes ?? []} />}
+        <CreatorsSpotlight
+          initialData={creatorData}
+          initialFollowedCreators={initialFollowedCreators}
+          initialFollowedUsername={initialFollowedUsername}
+        />
 
         {fp && (
           <>
-            <LatestReviews reviews={fp.reviews} episodeNotes={fp.creatorEpisodeNotes ?? []} />
             {(data.topRated?.length ?? 0) > 0 && (
               <section className={front.block} aria-labelledby="top-rated">
                 <SectionHead kicker="Already out · ranked" title="Top Rated" id="top-rated" href="/rankings" linkLabel="All rankings" />

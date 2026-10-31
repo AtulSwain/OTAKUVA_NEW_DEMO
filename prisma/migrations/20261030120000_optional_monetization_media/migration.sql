@@ -1,0 +1,9 @@
+ALTER TABLE "SponsorAd"
+  ALTER COLUMN "title" DROP NOT NULL,
+  ALTER COLUMN "clickUrl" DROP NOT NULL;
+
+ALTER TABLE "CommissionProduct"
+  ALTER COLUMN "title" DROP NOT NULL,
+  ALTER COLUMN "merchant" DROP NOT NULL,
+  ALTER COLUMN "url" DROP NOT NULL,
+  ADD COLUMN "videoUrl" TEXT;

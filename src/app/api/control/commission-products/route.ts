@@ -1,26 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import { requireControl } from '@control/lib/access';
+import { validateMonetizationMedia } from '@/lib/monetization/mediaValidation';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const auth = await requireControl(request); if (auth instanceof NextResponse) return auth;
-  const animeId = request.nextUrl.searchParams.get('animeId');
-  const anime = animeId ? await prisma.anime.findFirst({ where: { OR: [{ id: animeId }, { slug: animeId }] }, select: { id: true } }) : null;
-  if (animeId && !anime) return NextResponse.json({ error: 'Anime not found. Use the anime slug or ID from the catalog.' }, { status: 404 });
-  const products = anime ? await prisma.$queryRaw<any[]>`SELECT id, "animeId", title, merchant, url, "imageUrl", price, enabled, position, "createdAt", "updatedAt" FROM "CommissionProduct" WHERE "animeId" = ${anime.id} ORDER BY position ASC` : [];
+  const products = await prisma.$queryRaw<any[]>`SELECT p.id, p."animeId", p.title, p.merchant, p.url, p."imageUrl", p."videoUrl", p.price, p.enabled, p.position, p."createdAt", p."updatedAt", a."canonicalTitle" AS "animeTitle" FROM "CommissionProduct" p LEFT JOIN "Anime" a ON a.id = p."animeId" ORDER BY (p."animeId" IS NULL) DESC, p.position ASC, p."createdAt" DESC`;
   return NextResponse.json({ products });
 }
 export async function POST(request: NextRequest) {
   const auth = await requireControl(request); if (auth instanceof NextResponse) return auth;
-  const b = await request.json(); const animeKey = String(b.animeId || '');
-  const anime = await prisma.anime.findFirst({ where: { OR: [{ id: animeKey }, { slug: animeKey }] }, select: { id: true } });
-  const countRows = anime ? await prisma.$queryRaw<{ count: bigint }[]>`SELECT COUNT(*) AS count FROM "CommissionProduct" WHERE "animeId" = ${anime.id}` : [];
-  const count = Number(countRows[0]?.count ?? 0);
-  if (!anime || count >= 10 || !String(b.title || '').trim() || !['Amazon', 'Flipkart'].includes(String(b.merchant)) || !/^https:\/\//.test(String(b.url || ''))) return NextResponse.json({ error: 'Choose an anime, Amazon or Flipkart, a title, and a secure product URL. Maximum 10 products per anime.' }, { status: 400 });
-  const [product] = await prisma.$queryRaw<any[]>`INSERT INTO "CommissionProduct" (id, "animeId", title, merchant, url, "imageUrl", price, position, enabled, "createdAt", "updatedAt") VALUES (${randomUUID()}, ${anime.id}, ${String(b.title).trim().slice(0, 160)}, ${String(b.merchant)}, ${String(b.url).trim()}, ${b.imageUrl ? String(b.imageUrl) : null}, ${b.price ? String(b.price).slice(0, 40) : null}, ${count}, ${Boolean(b.enabled)}, NOW(), NOW()) RETURNING *`;
-  if (b.enabled) await prisma.$executeRaw`UPDATE "MonetizationSetting" SET "commissionsEnabled" = true, "updatedAt" = NOW() WHERE id = 'main'`;
-  return NextResponse.json({ product });
+  const b = await request.json();
+  const media = validateMonetizationMedia(b);
+  if (!media.ok) return NextResponse.json({ error: media.error, code: media.code }, { status: 400 });
+  const title = typeof b.title === 'string' ? b.title.trim().slice(0, 160) || null : null;
+  const merchant = media.clickUrl && ['Amazon', 'Flipkart'].includes(b.merchant) ? b.merchant : null;
+  if (media.clickUrl && !merchant) return NextResponse.json({ error: 'Choose Amazon or Flipkart for the product link.' }, { status: 400 });
+  try {
+    const product = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(0, hashtext('otakuva_shared_commission_pool'))::text AS lock_result`;
+      const countRows = await tx.$queryRaw<{ count: bigint }[]>`SELECT COUNT(*) AS count FROM "CommissionProduct" WHERE "animeId" IS NULL`;
+      const count = Number(countRows[0]?.count ?? 0);
+      if (count >= 10) return null;
+      const [created] = await tx.$queryRaw<any[]>`INSERT INTO "CommissionProduct" (id, "animeId", title, merchant, url, "imageUrl", "videoUrl", price, position, enabled, "createdAt", "updatedAt") VALUES (${randomUUID()}, NULL, ${title}, ${merchant}, ${media.clickUrl}, ${media.imageUrl}, ${media.videoUrl}, ${b.price ? String(b.price).trim().slice(0, 40) : null}, ${count}, true, NOW(), NOW()) RETURNING *`;
+      await tx.$executeRaw`INSERT INTO "MonetizationSetting" (id, "sponsorAdsEnabled", "commissionsEnabled", "updatedAt") VALUES ('main', false, true, NOW()) ON CONFLICT (id) DO UPDATE SET "commissionsEnabled" = true, "updatedAt" = NOW()`;
+      return created || null;
+    });
+    if (!product) return NextResponse.json({ error: 'The shared commission pool can contain up to 10 products.' }, { status: 400 });
+    return NextResponse.json({ product });
+  } catch (error) {
+    logger.error('Publishing commission product failed', {
+      error,
+      route: '/api/control/commission-products',
+      method: 'POST',
+    });
+    return NextResponse.json(
+      { error: 'The commission item could not be saved. Check the server logs for the database error.' },
+      { status: 500 },
+    );
+  }
 }

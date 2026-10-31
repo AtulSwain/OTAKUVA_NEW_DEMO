@@ -6,6 +6,7 @@ import { GUEST_COOKIE } from '../lib/landing/guest';
 import { getBrowseItemById, getBrowseList, getGenreArtwork } from '../lib/browseService';
 import { getTodayPick } from '@control/lib/dailyPicks';
 import { HomeClient } from './HomeClient';
+import { getCachedCreatorDirectory, getFollowedCreatorUsernames } from '../lib/creator/creatorDirectory';
 
 // Server component: every query behind the homepage runs here, at request
 // time, so the response HTML already contains the content — no client-side
@@ -16,11 +17,13 @@ export default async function HomePage() {
   // Signed-out visitors see the landing page first, unless they chose to
   // browse as a guest there (cookie set by /welcome).
   if (!authUser && !cookies().get(GUEST_COOKIE)) redirect('/welcome');
-  const [homeData, genreArt, choice, todayPick] = await Promise.all([
+  const [homeData, genreArt, choice, todayPick, creatorData, followedCreatorUsernames] = await Promise.all([
     getHomeData(authUser),
     getGenreArtwork().catch(() => []),
     getBrowseList('choice', {}).catch(() => []),
     getTodayPick(),
+    getCachedCreatorDirectory({ feedLimit: 8 }),
+    authUser ? getFollowedCreatorUsernames(authUser.id) : Promise.resolve([]),
   ]);
 
   // OTAKUVA Choice spotlight: today's pick from the control center when one
@@ -38,5 +41,14 @@ export default async function HomePage() {
   // (mapAnime), which is looser than HomeClient's HomeData shape.
   const initialSections = homeData.sections as any;
 
-  return <HomeClient initialSections={initialSections} genreArt={genreArt} spotlight={spotlight} />;
+  return (
+    <HomeClient
+      initialSections={initialSections}
+      genreArt={genreArt}
+      spotlight={spotlight}
+      creatorData={creatorData}
+      initialFollowedCreators={followedCreatorUsernames}
+      initialFollowedUsername={authUser?.username ?? null}
+    />
+  );
 }

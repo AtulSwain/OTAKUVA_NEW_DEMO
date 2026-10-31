@@ -149,11 +149,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('focus', handleVisibilityChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    const presenceHeartbeat = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && localStorage.getItem('otakuva_user')) {
+        fetchSession();
+      }
+    }, 2 * 60 * 1000);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleVisibilityChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.clearInterval(presenceHeartbeat);
     };
   }, [fetchSession]);
 

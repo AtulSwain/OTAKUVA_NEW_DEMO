@@ -37,6 +37,7 @@ Control Center/
 | News | Write OTAKUVA news stories |
 | Articles | Write long-form articles |
 | Collections | Make public collections of anime |
+| Ads & commissions | Publish sponsor ads on the homepage or anime pages, plus a shared pool of up to 10 commission items |
 | Users | See every account, when it was last active, change roles |
 | Analytics → Anime | Page views, most viewed, library adds, retention, genres, formats, decades, catalog completeness |
 | Analytics → News | Stories published, stories opened, most opened, your own stories, categories, sources |
@@ -65,5 +66,6 @@ sidebar has **View site**. On the website, an admin account sees
 - Anything you set by hand is **protected**: the automatic AniList/MAL sync
   never overwrites a field you edited. Clearing a field hands it back to sync.
 - Images can be an `https://` link or a file you upload.
+- “Save and configure” publishes a sponsor ad or commission item and enables its section. Sponsor ads can target the homepage (below Welcome and above Hype) or anime pages. The image/video display is medium-sized and keeps its full frame visible. An image or video is required. Dropdowns let you choose “No video URL required” / “Video URL required” and “No URL required” / “URL required”; both are optional by default. Anime commission media appears at the end of the anime page, after discussion and news; linked items have a “Visit product” link, while items without a URL show just the image/video. Anime pages show a stable rotating selection of four shared commission items; existing products pinned to an anime remain supported.
 - Create / reset the control-center account:
   `npx tsx scripts/create_control_admin.ts --username=<name>`

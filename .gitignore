@@ -69,3 +69,5 @@ prisma/*.backup*
 # Local tool settings / scratch output
 /.claude/
 /Claude outputs/
+
+/.vercel

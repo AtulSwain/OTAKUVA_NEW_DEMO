@@ -3060,10 +3060,10 @@ model PageViewDaily {
 
 model SponsorAd {
   id          String   @id @default(cuid())
-  title       String
+  title       String?
   imageUrl    String?
   videoUrl    String?
-  clickUrl    String
+  clickUrl    String?
   altText     String?
   placement   String   @default("HOME_ABOVE_HYPE")
   enabled     Boolean  @default(false)
@@ -3079,11 +3079,13 @@ model SponsorAd {
 
 model CommissionProduct {
   id          String   @id @default(cuid())
-  animeId     String
-  title       String
-  merchant    String
-  url         String
+  /// null = in the shared pool (rotated across every anime page); set = pinned to that anime
+  animeId     String?
+  title       String?
+  merchant    String?
+  url         String?
   imageUrl    String?
+  videoUrl    String?
   price       String?
   disclosure  String?  @default("As an affiliate, OTAKUVA may earn from qualifying purchases.")
   position    Int      @default(0)
@@ -3091,8 +3093,9 @@ model CommissionProduct {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  anime Anime? @relation(fields: [animeId], references: [id], onDelete: Cascade)
   @@index([animeId, enabled, position])
+  @@index([enabled, position])
 }
 
 model MonetizationSetting {
