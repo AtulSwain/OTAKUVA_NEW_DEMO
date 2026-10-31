@@ -29,6 +29,9 @@ export function MonetizationPage() {
   const [product, setProduct] = useState(emptyProduct);
   const [productIssue, setProductIssue] = useState('');
   const sharedProductCount = products.filter((item) => item.animeId === null).length;
+  const animeAdCount = ads.filter((item) => item.placement === 'ANIME_PAGE' && item.enabled).length;
+  const homeAdCount = ads.filter((item) => item.placement !== 'ANIME_PAGE' && item.enabled).length;
+  const animeAdsFull = ad.placement === 'ANIME_PAGE' && animeAdCount >= 20;
 
   const loadAds = useCallback(async () => {
     setAdsLoading(true); setAdsError('');
@@ -118,7 +121,13 @@ export function MonetizationPage() {
 
   return <div className={styles.page}>
     <header className={styles.head}><p className={styles.kicker}>Monetization</p><h1 className={styles.title}>Ads & commissions</h1><p className={styles.caption}>Save and configure to publish; you can disable either section at any time.</p></header>
-    <FormSection title="Advertisement and sponsorship" hint="Choose where this ad appears. Add an image, a video, or both; URL requirements are configurable.">
+    <FormSection title="Advertisement and sponsorship" hint="Choose where this ad appears. Add an image, a video, or both; URL requirements are configurable. Ads fill the full width of their section at the image's own shape — wide banners (about 3:1 or 4:1) look best.">
+      <div className={styles.fieldWide}>
+        <p className={styles.caption}>
+          <strong>Home page:</strong> {homeAdCount} enabled — the newest 3 are shown. ·{' '}
+          <strong>Anime pages:</strong> {animeAdCount} of 20 enabled — each anime page view shows one, taken in turn, so every ad gets an equal share of views and different visitors see different ads.
+        </p>
+      </div>
       <div className={styles.enableBar}><div><strong>Platform sponsor ads</strong><span>{switches.sponsorAdsEnabled ? 'Enabled — ads appear at their selected placement.' : 'Disabled — all sponsor ads are hidden.'}</span></div><button type="button" className={switches.sponsorAdsEnabled ? styles.dangerBtn : styles.primary} onClick={() => void setSwitch('sponsorAdsEnabled')}><Power size={15} /> {switches.sponsorAdsEnabled ? 'Disable ads' : 'Enable ads'}</button></div>
       <Field label="Advertisement placement"><select className={styles.selectFull} value={ad.placement} onChange={(e) => { setAd({ ...ad, placement: e.target.value as AdDraft['placement'] }); setAdMsg(null); }}><option value="HOME_ABOVE_HYPE">Home page — below Welcome, above Hype</option><option value="ANIME_PAGE">Anime page</option></select></Field>
       <Field label="Sponsor / campaign title (optional)" wide><input className={styles.input} value={ad.title} onChange={(e) => { setAd({ ...ad, title: e.target.value }); setAdMsg(null); }} placeholder="Leave blank to show only the media" /></Field>
@@ -129,13 +138,13 @@ export function MonetizationPage() {
       <Field label="Click-through URL"><input className={styles.input} value={ad.clickUrl} onChange={(e) => { setAd({ ...ad, clickUrl: e.target.value }); setAdMsg(null); }} placeholder="https://sponsor.example/…" /></Field>
       <Field label="Accessible description"><input className={styles.input} value={ad.altText} onChange={(e) => setAd({ ...ad, altText: e.target.value })} placeholder="Sponsored message description" /></Field>
       <div className={styles.fieldWide}>
-        <button type="button" className={styles.primary} disabled={busy} onClick={() => void createAd()}>{busy ? <Loader2 size={15} className={styles.spin} /> : <Plus size={15} />} {busy ? 'Preparing and publishing…' : 'Save and configure'}</button>
+        <button type="button" className={styles.primary} disabled={busy || animeAdsFull} onClick={() => void createAd()}>{busy ? <Loader2 size={15} className={styles.spin} /> : <Plus size={15} />} {animeAdsFull ? 'Anime pages are full (20)' : busy ? 'Preparing and publishing…' : 'Save and configure'}</button>
         <p className={styles.caption}>After saving, the ad and platform sponsor section are enabled together.</p>
         {adMsg && <p className={adMsg.code ? styles.error : styles.okMsg} role={adMsg.code ? 'alert' : 'status'}>{adMsg.text}</p>}
       </div>
     </FormSection>
     <section className={styles.block}><h2 className={styles.blockTitle}>Sponsor ads</h2>{adsError && <p className={styles.error} role="alert">{adsError}</p>}{adsLoading && <p className={styles.caption}>Loading sponsor ads…</p>}{!adsLoading && !adsError && ads.length === 0 && <p className={styles.caption}>No sponsor ads have been added.</p>}<ul className={styles.list}>{ads.map((item) => <li className={styles.userRow} key={item.id}><span className={styles.rowText}><strong>{item.title || 'Untitled sponsor media'}</strong><span>{item.placement === 'ANIME_PAGE' ? 'Anime page' : 'Home page'} · {item.videoUrl ? 'Video' : 'Image'} · {item.enabled ? 'Enabled' : 'Disabled'}</span></span><button className={styles.secondary} type="button" onClick={() => void toggle('ads', item)}><Power size={14} /> {item.enabled ? 'Disable' : 'Enable'}</button><button className={styles.iconBtn} type="button" onClick={() => void remove('ads', item.id)} aria-label="Delete sponsor ad"><Trash2 size={15} /></button></li>)}</ul></section>
-    <FormSection title="Anime commission products" hint="Add up to 10 image or video items to the shared pool. Choose whether a video URL and product URL are required.">
+    <FormSection title="Anime commission products" hint={`Add up to 10 image or video items to the shared pool (${sharedProductCount} of 10 used). Every anime page view shows 4, taken in turn from the pool, so each item gets an equal share of views. Choose whether a video URL and product URL are required.`}>
       <div className={styles.enableBar}><div><strong>Anime commission section</strong><span>{switches.commissionsEnabled ? 'Enabled — products appear on anime pages.' : 'Disabled — commission products are hidden.'}</span></div><button type="button" className={switches.commissionsEnabled ? styles.dangerBtn : styles.primary} onClick={() => void setSwitch('commissionsEnabled')}><Power size={15} /> {switches.commissionsEnabled ? 'Disable section' : 'Enable section'}</button></div>
       <Field label="Product title (optional)"><input className={styles.input} value={product.title} onChange={(e) => setProduct({ ...product, title: e.target.value })} placeholder="Leave blank to show only the media" /></Field>
       <Field label="Merchant (when using a URL)"><select className={styles.selectFull} value={product.merchant} onChange={(e) => setProduct({ ...product, merchant: e.target.value })}><option>Amazon</option><option>Flipkart</option></select></Field>

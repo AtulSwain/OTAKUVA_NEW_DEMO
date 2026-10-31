@@ -22,6 +22,12 @@ export const SPONSOR_AD_PLACEMENTS = {
   ANIME: 'ANIME_PAGE',
 } as const;
 
+/** Most enabled ads a placement can hold. Anime pages rotate them evenly, one per view. */
+export const MAX_ADS_PER_PLACEMENT = {
+  HOME_ABOVE_HYPE: 3,
+  ANIME_PAGE: 20,
+} as const;
+
 export type SponsorAdPlacement =
   (typeof SPONSOR_AD_PLACEMENTS)[keyof typeof SPONSOR_AD_PLACEMENTS];
 

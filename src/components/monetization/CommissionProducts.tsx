@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
+import { itemsForTurn, nextTurn } from '../../lib/monetization/rotation';
 import styles from './monetization.module.css';
 type Product = { id: string; title: string | null; merchant: string | null; url: string | null; imageUrl: string | null; videoUrl: string | null; price: string | null; disclosure: string | null };
 export function CommissionProducts({ animeId }: { animeId: string }) {
@@ -12,7 +13,22 @@ export function CommissionProducts({ animeId }: { animeId: string }) {
         if (!response.ok) throw new Error('Could not load commission products.');
         return response.json();
       })
-      .then((data) => { if (active) setProducts(Array.isArray(data.products) ? data.products : []); })
+      .then((data) => {
+        if (!active) return;
+        if (!Array.isArray(data.shared)) {
+          setProducts(Array.isArray(data.products) ? data.products : []);
+          return;
+        }
+        // Pinned items first, then this view's turn of the shared pool, so every
+        // pool item is shown equally often across all anime pages and visitors.
+        const pinned: Product[] = Array.isArray(data.pinned) ? data.pinned : [];
+        const perView = Number(data.perView) || 4;
+        const slots = Math.max(perView - pinned.length, 0);
+        const fromPool = slots > 0 && data.shared.length > 0
+          ? itemsForTurn<Product>(data.shared, nextTurn('anime-commission'), slots)
+          : [];
+        setProducts([...pinned, ...fromPool]);
+      })
       .catch(() => { if (active) setProducts([]); });
     return () => { active = false; };
   }, [animeId]);
