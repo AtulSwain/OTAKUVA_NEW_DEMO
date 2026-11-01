@@ -1948,6 +1948,15 @@ gaps against later phases, from the last audit (2026-08-28):
     plate; any other logo (admin upload) fills the tile edge to edge
     (`isPlatedLogo` / `.logoFill` in `StudioLogo`). Control Center logo
     previews no longer use a white plate either.
+- **Support contact (2026-11-01, owner)**: "Need a Hand?" in the site footer
+  (`src/components/shell/SupportContact.tsx`), right under the brand line
+  "Track what you watch…" — stacked on phones, brand left / support right on
+  laptops (≥961px). mailto: links only (no form/backend): the address, and
+  "Contact Support" with subject "OTAKUVA – Support Request"; Copy button.
+  Address in `src/lib/support.ts` (`NEXT_PUBLIC_SUPPORT_EMAIL` overrides).
+  **otakuva.com is not registered** (checked 2026-11-01: no DNS, available
+  at Vercel for $12.03/yr), so support@otakuva.com can't receive mail until
+  the domain is bought and email routing is set up.
 - Real-world schedule spec: `docs/OTAKUVA_SCHEDULE_SPEC_v1.md` (AniList +
   AnimeSchedule.net dual-provider `ReleaseEvent` model, regional/sub/dub
   releases, delay tracking, admin conflict resolution). Not started.
