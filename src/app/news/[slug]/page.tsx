@@ -144,6 +144,12 @@ export default function NewsReaderPage() {
   const displayCategory = article.displayCategory || article.category;
   const targetUrl = article.canonicalUrl || article.sourceUrl || '#';
   const isOwnStory = article.provider === 'INTERNAL';
+  // The source's own opening paragraphs, copied verbatim at ingestion
+  // (src/lib/engine/news/articleExcerpt.ts). Never rewritten here.
+  const excerpt: string[] =
+    !isOwnStory && article.contentType === 'SOURCE_EXCERPT' && article.content
+      ? String(article.content).split(/\n{2,}/).map((p: string) => p.trim()).filter(Boolean)
+      : [];
 
   return (
     <div className={styles.readerWrapper}>
@@ -207,6 +213,8 @@ export default function NewsReaderPage() {
               <span className={styles.contentTypeBadge}>
                 {article.contentType === 'OTAKUVA_EDITORIAL'
                   ? 'Editorial'
+                  : article.contentType === 'SOURCE_EXCERPT'
+                  ? 'Source excerpt'
                   : article.contentType === 'LICENSED_CONTENT'
                   ? 'Licensed'
                   : 'Source Metadata'}
@@ -217,7 +225,8 @@ export default function NewsReaderPage() {
 
         <h1 className={styles.heroTitle}>{displayTitle}</h1>
 
-        {displaySummary && (
+        {/* The feed's one-line teaser repeats the opening, so it's only shown when there's no excerpt. */}
+        {displaySummary && excerpt.length === 0 && (
           <p className={styles.heroSubtitle}>{displaySummary}</p>
         )}
 
@@ -297,16 +306,26 @@ export default function NewsReaderPage() {
             </div>
           )}
 
-          {/* Canonical "Read Original Article" Action Card */}
+          {/* Opening of the source's article, word for word, then the link to the rest. */}
+          {excerpt.length > 0 && (
+            <section className={styles.sourceExcerpt} aria-label={`Opening of the article on ${article.sourceName}`}>
+              <span className={styles.excerptLabel}>
+                <Building2 size={12} aria-hidden="true" /> From {article.sourceName}
+              </span>
+              <div className={styles.excerptBody}>
+                {excerpt.map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+              </div>
+            </section>
+          )}
+
           {!isOwnStory && (
           <div className={styles.readOriginalBanner}>
             <div className={styles.readOriginalInfo}>
-              <h3 className={styles.readOriginalTitle}>Read Full Original Coverage</h3>
+              <h3 className={styles.readOriginalTitle}>Want to know more?</h3>
               <p className={styles.readOriginalDesc}>
-                Source: <strong>{article.sourceName}</strong> • Published: <strong>{publishFormatted}</strong>
-              </p>
-              <p className={styles.readOriginalDesc}>
-                View complete uninterrupted text, interviews, and official media directly on the original publisher website.
+                Read the full story on <strong>{article.sourceName}</strong> · Published {publishFormatted}
               </p>
             </div>
             <a
@@ -316,8 +335,8 @@ export default function NewsReaderPage() {
               className={styles.readOriginalActionBtn}
               onClick={handleSourceClick}
             >
-              <span>READ ORIGINAL ARTICLE</span>
-              <ExternalLink size={13} />
+              <span>Visit {article.sourceName}</span>
+              <ExternalLink size={13} aria-hidden="true" />
             </a>
           </div>
           )}

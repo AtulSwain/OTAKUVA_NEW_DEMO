@@ -310,7 +310,6 @@ export default function NewsPage() {
                 <span className={styles.leadBody}>
                   <span className={styles.cat}>{v.category}</span>
                   <strong className={styles.leadTitle}>{v.title}</strong>
-                  {v.summary && <span className={styles.leadSummary}>{v.summary}</span>}
                   <span className={styles.meta}>
                     {lead.sourceName} · {v.time}
                   </span>
@@ -340,7 +339,6 @@ export default function NewsPage() {
                       )}
                     </span>
                     <strong className={styles.cardTitle}>{v.title}</strong>
-                    {v.summary && <span className={styles.cardSummary}>{v.summary}</span>}
                     <span className={styles.meta}>
                       {article.sourceName} · {v.time}
                     </span>

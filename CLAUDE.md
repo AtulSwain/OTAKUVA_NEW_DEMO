@@ -1961,6 +1961,26 @@ gaps against later phases, from the last audit (2026-08-28):
   **otakuva.com is not registered** (checked 2026-11-01: no DNS, available
   at Vercel for $12.03/yr), so support@otakuva.com can't receive mail until
   the domain is bought and email routing is set up.
+- **News = headline + source's opening paragraphs + link (2026-11-01, owner)**:
+  `/news` cards show the headline only (no summary). A story page shows the
+  headline, then the source's first one or two paragraphs **word for word**
+  ("From <source>", hairline quote), then "Want to know more? Read the full
+  story on <source>" → the original. Stored in `NewsArticle.content`,
+  `contentType 'SOURCE_EXCERPT'` (plain text, paragraphs split by a blank
+  line) — no schema change. Rules in `src/lib/engine/news/articleExcerpt.ts`:
+  only the opening is kept, never the whole article; sentences are never
+  skipped or rewritten (stop at site furniture / a feed's "…" cut);
+  shortcodes and menus dropped. Sources, in order: the feed body
+  (`content:encoded` — Crunchyroll, Anime Herald), a ≥300-char feed summary
+  (MyAnimeList, Honey's), else the article page on an allow-listed news host
+  (`SOURCE_HOSTS` — ANN, Anime Corner, Anime Feminist, …).
+  `newsExcerptService.enrichMissingExcerpts` runs after every
+  `syncAllProviders` (10 stories, last 7 days); only fills empty content,
+  never INTERNAL stories. `scripts/backfill_news_excerpts.ts [--apply]
+  [--limit= --days=]` for stored stories (run on Neon 2026-11-01). Older
+  Crunchyroll stories can't be filled (feed keeps only the latest 50; pages
+  are client-rendered) — they keep the summary + link. Anime UK News feed
+  returns 401. Tests: `tests/news-excerpt.test.ts`.
 - Real-world schedule spec: `docs/OTAKUVA_SCHEDULE_SPEC_v1.md` (AniList +
   AnimeSchedule.net dual-provider `ReleaseEvent` model, regional/sub/dub
   releases, delay tracking, admin conflict resolution). Not started.
