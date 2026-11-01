@@ -207,3 +207,39 @@
   .deskList > li:nth-child(n + 5) { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .deskArt img, .row { transition: none; } }
+
+/* ── Slider (2026-11-01, owner): the big card moves one by one ── */
+.stage { position: relative; display: flex; min-width: 0; border-radius: 20px; touch-action: pan-y; }
+.slide { display: flex; flex: 1; min-width: 0; animation: slideIn 0.55s ease both; }
+.slide > .deskLead { flex: 1; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+
+.progress { position: absolute; top: 14px; left: 18px; right: 140px; z-index: 2; display: flex; gap: 5px; pointer-events: none; }
+.progressTrack { position: relative; flex: 1; height: 3px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, 0.22); }
+.progressFill { position: absolute; inset: 0; border-radius: inherit; background: #fff; transform-origin: left center; }
+.progressDone { transform: scaleX(1); }
+.progressRun { transform: scaleX(0); animation-name: progressRun; animation-timing-function: linear; animation-fill-mode: forwards; }
+.stagePaused .progressRun { animation-play-state: paused; }
+@keyframes progressRun { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.controls { position: absolute; top: 6px; right: 10px; z-index: 2; display: flex; align-items: center; gap: 4px; padding: 3px; border-radius: 999px; background: rgba(10, 10, 12, 0.55); backdrop-filter: blur(8px); }
+.ctrlBtn { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 999px; background: transparent; color: #fff; cursor: pointer; transition: background 0.15s ease; }
+.ctrlBtn:hover { background: rgba(255, 255, 255, 0.14); }
+.ctrlBtn:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.counter { min-width: 34px; text-align: center; font-size: 11.5px; font-weight: 700; color: rgba(255, 255, 255, 0.85); font-variant-numeric: tabular-nums; }
+
+.rowActive { background: var(--surface-active); }
+.rowActive .rowChevron { color: var(--text-primary); }
+
+/* Room for the controls above the card's text. */
+.stage .deskBody { padding-top: 56px; }
+
+@media (max-width: 560px) {
+  .progress { left: 12px; right: 128px; }
+  .ctrlBtn { width: 32px; height: 32px; }
+}
+/* Reduce motion: no auto-advance (the bar never runs), no slide-in movement. */
+@media (prefers-reduced-motion: reduce) {
+  .slide { animation: none; }
+  .progressRun { animation: none; transform: scaleX(1); opacity: 0.5; }
+}

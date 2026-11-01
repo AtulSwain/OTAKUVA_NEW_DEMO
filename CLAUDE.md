@@ -1909,7 +1909,11 @@ gaps against later phases, from the last audit (2026-08-28):
     from stored relations; latest CONFIRMED news; hype count). Shown on the
     homepage (`AnnouncedRail`, "Just Announced", before Upcoming — a front-page
     desk: one lead with art (AniList banner → trailer still → blurred poster)
-    + a hairline list of the next 6; no boxed cards, owner 2026-11-01), `/announced`
+    + a hairline list of the next 6; no boxed cards, owner 2026-11-01; the
+    lead is a slider since later that day: 7 slides, 6s each via a CSS
+    progress bar whose animationend advances it, pauses on hover/focus,
+    hovering a list row shows it, swipe on phones, no auto-advance under
+    prefers-reduced-motion), `/announced`
     (lead story + format chips + load more; phone ⋯ menu link) and every
     studio page (section "Announced" + stat tile). API `GET /api/announced?
     limit=&offset=&format=&studio=`. UI in `src/components/announced/`.
