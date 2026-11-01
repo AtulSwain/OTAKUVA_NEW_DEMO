@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Building2, CalendarDays, ChevronRight, Sparkles } from 'lucide-react';
+import { Building2, CalendarDays, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import type { AnnouncedAnime } from '../../lib/announcements/announcedAnime';
 import { isWideBanner, trailerStills } from '../../lib/media/heroArt';
 import { SectionHead } from '../ui/SectionHead';
@@ -18,13 +18,25 @@ function metaLine(a: AnnouncedAnime): string {
 
 const mainStudio = (a: AnnouncedAnime) => a.studios[0]?.name ?? null;
 
+/** How long each announcement stays in the big card (the CSS progress bar runs this long). */
+const SLIDE_MS = 6000;
+
 /**
- * Homepage "Just Announced" (2026-11-01, reworked same day): front-page
- * layout like the rest of the homepage — one lead announcement with its art,
- * and a hairline list of the next ones. No boxed cards.
+ * Homepage "Just Announced" (2026-11-01): front-page layout like the rest of
+ * the homepage — a big card with art and a hairline list beside it. The big
+ * card is a slider: it moves through the announcements one by one (6s each,
+ * progress bars on top), pauses while hovered or focused, follows the row
+ * you hover in the list, swipes on phones, and doesn't auto-advance for
+ * people who turned on "reduce motion" (the CSS bar never runs, so it never
+ * ends).
  */
 export function AnnouncedRail() {
   const [items, setItems] = useState<AnnouncedAnime[] | null>(null);
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  // Bumped on every change so the progress bar restarts from zero.
+  const [cycle, setCycle] = useState(0);
+  const touchX = useRef<number | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -37,16 +49,30 @@ export function AnnouncedRail() {
     };
   }, []);
 
+  // Newest with wide art among the first few goes first, then the rest in order.
+  const slides = useMemo(() => {
+    if (!items || items.length === 0) return [];
+    const first = items.slice(0, 4).find((a) => isWideBanner(a.bannerUrl)) ?? items[0];
+    return [first, ...items.filter((a) => a.id !== first.id)].slice(0, LIST_COUNT + 1);
+  }, [items]);
+
+  const go = useCallback(
+    (i: number) => {
+      if (slides.length === 0) return;
+      setActive(((i % slides.length) + slides.length) % slides.length);
+      setCycle((c) => c + 1);
+    },
+    [slides.length]
+  );
+
   if (items && items.length === 0) return null;
 
-  // Lead = the newest one with wide art among the first few, else the newest.
-  const lead = items ? items.slice(0, 4).find((a) => isWideBanner(a.bannerUrl)) ?? items[0] : null;
-  const rest = items ? items.filter((a) => a.id !== lead?.id).slice(0, LIST_COUNT) : [];
+  const current = slides[active];
 
   return (
     <section className={styles.block} aria-labelledby="home-announced">
       <SectionHead kicker="Studio news" title="Just Announced" id="home-announced" href="/announced" linkLabel="All announcements" />
-      {!items || !lead ? (
+      {!items || !current ? (
         <div className={styles.desk} aria-hidden="true">
           <div className={`${styles.skeleton} ${styles.deskLeadSkeleton}`} />
           <div className={styles.deskList}>
@@ -56,12 +82,75 @@ export function AnnouncedRail() {
           </div>
         </div>
       ) : (
-        <div className={styles.desk}>
-          <DeskLead anime={lead} />
+        // Pointer anywhere over the card or the list pauses the slider.
+        <div className={styles.desk} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+          <div
+            className={`${styles.stage} ${paused ? styles.stagePaused : ''}`}
+            role="region"
+            aria-roledescription="carousel"
+            aria-label="Latest announcements"
+            onFocus={() => setPaused(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPaused(false);
+            }}
+            onTouchStart={(e) => {
+              touchX.current = e.touches[0]?.clientX ?? null;
+            }}
+            onTouchEnd={(e) => {
+              const start = touchX.current;
+              touchX.current = null;
+              const end = e.changedTouches[0]?.clientX;
+              if (start == null || end == null || Math.abs(end - start) < 40) return;
+              go(end < start ? active + 1 : active - 1);
+            }}
+          >
+            <div key={current.id} className={styles.slide} aria-roledescription="slide" aria-label={`${active + 1} of ${slides.length}`}>
+              <DeskLead anime={current} />
+            </div>
+
+            {slides.length > 1 && (
+              <>
+                <div className={styles.progress} aria-hidden="true">
+                  {slides.map((a, i) => (
+                    <span key={a.id} className={styles.progressTrack}>
+                      {i < active && <span className={`${styles.progressFill} ${styles.progressDone}`} />}
+                      {i === active && (
+                        <span
+                          key={cycle}
+                          className={`${styles.progressFill} ${styles.progressRun}`}
+                          style={{ animationDuration: `${SLIDE_MS}ms` }}
+                          onAnimationEnd={() => go(active + 1)}
+                        />
+                      )}
+                    </span>
+                  ))}
+                </div>
+                <div className={styles.controls}>
+                  <button type="button" className={styles.ctrlBtn} onClick={() => go(active - 1)} aria-label="Previous announcement">
+                    <ChevronLeft size={16} aria-hidden="true" />
+                  </button>
+                  <span className={styles.counter} aria-hidden="true">
+                    {active + 1} / {slides.length}
+                  </span>
+                  <button type="button" className={styles.ctrlBtn} onClick={() => go(active + 1)} aria-label="Next announcement">
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           <ul className={styles.deskList}>
-            {rest.map((a) => (
+            {slides.map((a, i) => (
               <li key={a.id}>
-                <Link href={`/anime/${a.slug}`} className={styles.row}>
+                <Link
+                  href={`/anime/${a.slug}`}
+                  className={`${styles.row} ${i === active ? styles.rowActive : ''}`}
+                  aria-current={i === active ? 'true' : undefined}
+                  onMouseEnter={() => {
+                    if (i !== active) go(i);
+                  }}
+                >
                   <span className={styles.rowPoster}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     {a.posterUrl ? <img src={a.posterUrl} alt="" loading="lazy" /> : null}
