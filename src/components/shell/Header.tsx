@@ -44,6 +44,7 @@ import {
   Palette,
   type LucideIcon,
   ShieldCheck,
+  Megaphone,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BROWSE_GENRES } from '../../lib/browse';
@@ -68,6 +69,7 @@ const MOBILE_QUICK_LINKS: { href: string; label: string; icon: LucideIcon }[] = 
   { href: '/top-picks', label: 'Top Picks', icon: Trophy },
   { href: '/browse', label: 'Browse', icon: LayoutGrid },
   { href: '/seasonal', label: 'Seasonal', icon: CalendarDays },
+  { href: '/announced', label: 'Announced', icon: Megaphone },
   { href: '/rankings', label: 'Rankings', icon: BarChart3 },
   { href: '/studios', label: 'Studios', icon: Building2 },
   { href: '/artists', label: 'Creators', icon: Palette },

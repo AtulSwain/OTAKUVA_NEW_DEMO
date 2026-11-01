@@ -33,7 +33,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getProducerRedisConnection } from '../queue/connection';
+import { getProducerRedisConnection, isRedisConfigured } from '../queue/connection';
 import { logger } from '../logger';
 
 export const IP_MAX_ATTEMPTS = 10;
@@ -78,6 +78,9 @@ const REDIS_COOLDOWN_MS = 30_000;
 let redisDownUntil = 0;
 
 function redisAvailable(): boolean {
+  // No Redis configured (e.g. Vercel without a Redis add-on): use the
+  // in-memory limiter and never open a connection to localhost.
+  if (!isRedisConfigured()) return false;
   return Date.now() >= redisDownUntil;
 }
 

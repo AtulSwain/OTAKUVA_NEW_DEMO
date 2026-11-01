@@ -5,6 +5,7 @@
  */
 
 import { getSyncQueue } from './queue';
+import { isRedisConfigured } from './connection';
 import type { SyncJobName } from './queue';
 import { createPendingSyncJob, attachBullJobId, markSyncJobFailedPermanently } from './syncJob';
 import type { CreatePendingSyncJobInput } from './syncJob';
@@ -18,6 +19,11 @@ export interface EnqueueSyncJobInput extends CreatePendingSyncJobInput {
 }
 
 export async function enqueueSyncJob(input: EnqueueSyncJobInput) {
+  // Production without REDIS_URL has no queue: say so instead of opening a
+  // connection to localhost that retries (and logs errors) in the background.
+  if (!isRedisConfigured()) {
+    throw new Error('Background jobs need REDIS_URL, which is not set on this deployment.');
+  }
   const syncJob = await createPendingSyncJob({
     provider: input.provider,
     jobType: input.jobType,

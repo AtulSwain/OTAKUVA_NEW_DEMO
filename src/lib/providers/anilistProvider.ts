@@ -707,6 +707,35 @@ export class AniListProvider implements AnimeProvider {
     };
   }
 
+  /**
+   * Newest announcements first: not-yet-released, non-adult anime in
+   * descending AniList id order. AniList creates an entry when a show is
+   * announced, so the highest ids are the latest announcements.
+   */
+  async getRecentlyAnnouncedAnime(page = 1, limit = 50): Promise<{ items: ProviderAnime[]; pagination: ProviderPagination }> {
+    const gql = `
+      query ($page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          pageInfo { currentPage lastPage hasNextPage total }
+          media(status: NOT_YET_RELEASED, type: ANIME, isAdult: false, sort: ID_DESC) {
+            ${MEDIA_FIELDS}
+          }
+        }
+      }
+    `;
+    const data = await graphql(gql, { page, perPage: limit });
+    const pageInfo = data?.Page?.pageInfo || {};
+    return {
+      items: (data?.Page?.media || []).map(mapAniListAnime),
+      pagination: {
+        currentPage: pageInfo.currentPage || page,
+        lastVisiblePage: pageInfo.lastPage || page,
+        hasNextPage: Boolean(pageInfo.hasNextPage),
+        totalItems: pageInfo.total || 0,
+      },
+    };
+  }
+
   /** Not-yet-released anime (many have no start date at all), stable id order. */
   async getUnreleasedAnime(page = 1, limit = 50): Promise<{ items: ProviderAnime[]; pagination: ProviderPagination }> {
     const gql = `

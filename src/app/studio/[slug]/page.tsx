@@ -13,6 +13,10 @@ import { GenreChips, PosterRow, StatTiles, WorksTimeline } from '../../../compon
 import { resolveMediaUrl } from '../../../lib/mediaResolver';
 import styles from '../../../components/entity/Entity.module.css';
 import { ViewBeacon } from '../../../components/analytics/ViewBeacon';
+import { countAnnouncedAnime, getAnnouncedAnime } from '../../../lib/announcements/announcedAnime';
+import { ensureFreshAnnouncements } from '../../../lib/announcements/announcementSync';
+import { AnnouncedCard } from '../../../components/announced/AnnouncedCard';
+import announcedStyles from '../../../components/announced/Announced.module.css';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,12 +43,19 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 export default async function StudioPage({ params }: { params: { slug: string } }) {
   const s = await getStudioProfile(params.slug);
   if (!s) notFound();
+  ensureFreshAnnouncements();
+  // This studio's announced, not-yet-premiered anime — newest announcement first.
+  const [announced, announcedTotal] = await Promise.all([
+    getAnnouncedAnime({ studioId: s.id, limit: 12 }),
+    countAnnouncedAnime({ studioId: s.id }),
+  ]);
 
   const span = s.stats.firstYear && s.stats.latestYear ? (s.stats.firstYear === s.stats.latestYear ? String(s.stats.firstYear) : `${s.stats.firstYear}–${s.stats.latestYear}`) : null;
   const stats = [
     { value: s.stats.works.toLocaleString('en-US'), label: s.stats.works === 1 ? 'anime' : 'anime in the catalog' },
     ...(span ? [{ value: span, label: 'years with credits' }] : []),
     ...(s.stats.airing > 0 ? [{ value: String(s.stats.airing), label: 'airing now' }] : []),
+    ...(announcedTotal > 0 ? [{ value: String(announcedTotal), label: 'announced' }] : []),
     ...s.formats.slice(0, 2).map((f) => ({ value: f.count.toLocaleString('en-US'), label: f.type === 'Movie' ? (f.count === 1 ? 'movie' : 'movies') : `${f.type}` })),
     ...(s.stats.averageScore != null ? [{ value: s.stats.averageScore.toFixed(2), label: 'avg. MAL/AniList score' }] : []),
   ];
@@ -112,6 +123,17 @@ export default async function StudioPage({ params }: { params: { slug: string } 
           <StatTiles stats={stats} />
         </div>
       </header>
+
+      {announced.length > 0 && (
+        <section className={styles.section} aria-labelledby="studio-announced" id="announced">
+          <SectionHead kicker="Coming from this studio" title="Announced" id="studio-announced" count={announcedTotal} />
+          <div className={announcedStyles.grid}>
+            {announced.map((a) => (
+              <AnnouncedCard key={a.id} anime={a} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {s.description && (
         <section className={styles.section} aria-labelledby="studio-about">

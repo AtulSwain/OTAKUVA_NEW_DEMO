@@ -1899,6 +1899,55 @@ gaps against later phases, from the last audit (2026-08-28):
     `src/lib/notifications/adminAlerts.ts` — Notification types
     `ADMIN_NEW_MEMBER` (register route) and `ADMIN_NEW_CREATOR`
     (`upgradeToCreator`) to every ADMIN/SUPER_ADMIN; best-effort.
+- **Announced section + studio logos (2026-11-01, owner)**:
+  - *Announced* = announced, not-yet-premiered anime, newest announcement
+    first (AniList id desc — AniList creates the entry at announcement; manual
+    anime added in the last 30 days lead). Excludes adult, music videos and
+    "Not yet aired" rows whose exact premiere day has passed. Read model
+    `src/lib/announcements/announcedAnime.ts` (`getAnnouncedAnime`, studio /
+    format filters; premiere label only from stored precision; "Sequel to"
+    from stored relations; latest CONFIRMED news; hype count). Shown on the
+    homepage (`AnnouncedRail`, "Just Announced", before Upcoming — a front-page
+    desk: one lead with art (AniList banner → trailer still → blurred poster)
+    + a hairline list of the next 6; no boxed cards, owner 2026-11-01), `/announced`
+    (lead story + format chips + load more; phone ⋯ menu link) and every
+    studio page (section "Announced" + stat tile). API `GET /api/announced?
+    limit=&offset=&format=&studio=`. UI in `src/components/announced/`.
+  - *Sync* `src/lib/announcements/announcementSync.ts`: AniList
+    `getRecentlyAnnouncedAnime` (NOT_YET_RELEASED, ID_DESC) → new titles via
+    `ingestAnime` (studios linked, so they appear on the studio page),
+    same-title+format+year held for review, stale (>24h) AniList copies
+    refreshed, relations upserted, then news linked. One run at a time via a
+    lease on SyncCheckpoint (`anilist`/`ANNOUNCEMENTS`). Runs itself
+    (`ensureFreshAnnouncements`, every 3h, from /announced, the API and studio
+    pages) — no Redis needed; manual: `npx tsx scripts/sync_announced_anime.ts
+    [--pages= --max-new= --max-refresh=]`. Not a queue job yet.
+  - *News linking is strict*: only announced anime, only a whole-title match
+    in the headline, and NOT when followed by "Season 2", "Part", ":", a number
+    etc. (that's another entry). Titles shared by another anime or shorter
+    than 12 chars go to `NewsReviewQueue`. First run linked news to older
+    franchise entries (e.g. S2 news on S1) — those 104 links + 27 queue rows
+    were deleted and the rules above added. Tests: `tests/announced-anime.test.ts`.
+  - *On Vercel*: background work after a response can be frozen, so a daily
+    Vercel Cron (`vercel.json` → `GET /api/cron/announced`, 03:30 UTC, small
+    caps to fit 60s) runs the sync. It needs `CRON_SECRET` in the Vercel
+    project env (fails closed with 401 without it). The news linker does a
+    handful of queries in total (not one per anime) because the Neon DB is in
+    Singapore, far from the functions.
+  - *Vercel production errors (diagnosed 2026-11-01)*: the "loads then
+    errors" reports were the old Render Postgres ("service temporarily
+    unavailable", "database system is starting up", P1017) and, earlier, a
+    missing DATABASE_URL — both gone since the Neon switch (2026-10-31
+    ~14:30 UTC). Still live then: `authRateLimiter` opened Redis to
+    127.0.0.1 with no REDIS_URL (retry noise on every warm instance) — now
+    skips Redis unless `isRedisConfigured()`; `enqueueSyncJob` throws a clear
+    error instead. ANN news fetches fail from Vercel (feed unreachable there)
+    — not fixed. Failed builds in the Vercel list are Dependabot branches,
+    not main.
+  - *Studio logos*: Wikidata wordmarks (`/brand/studios/…`) keep the white
+    plate; any other logo (admin upload) fills the tile edge to edge
+    (`isPlatedLogo` / `.logoFill` in `StudioLogo`). Control Center logo
+    previews no longer use a white plate either.
 - Real-world schedule spec: `docs/OTAKUVA_SCHEDULE_SPEC_v1.md` (AniList +
   AnimeSchedule.net dual-provider `ReleaseEvent` model, regional/sub/dub
   releases, delay tracking, admin conflict resolution). Not started.
