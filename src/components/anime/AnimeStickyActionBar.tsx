@@ -125,7 +125,7 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
         )}
 
         {/* Play Trailer Button */}
-        {anime.trailerUrl && onOpenTrailer && (
+        {onOpenTrailer && (
           <button
             type="button"
             className={`${styles.actionBtn} ${styles.secondaryBtn} ${styles.iconOnlyBtn}`}

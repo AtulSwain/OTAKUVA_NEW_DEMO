@@ -450,8 +450,9 @@ export default function AnimeDetailClient({
 
   // Only the trailer recorded on the canonical anime. A hardcoded
   // slug→YouTube map used to fill gaps with unverified links.
+  // The Trailer button is always shown; with no trailer the window says so.
   const activeTrailerUrl = anime.trailerUrl || null;
-  const openTrailer = activeTrailerUrl ? () => setIsTrailerOpen(true) : undefined;
+  const openTrailer = () => setIsTrailerOpen(true);
 
   const totalEp = anime.episodes ?? undefined;
   const displayTitle = getAnimeDisplayTitle(anime);
@@ -878,7 +879,7 @@ export default function AnimeDetailClient({
         isOpen={isTrailerOpen}
         onClose={() => setIsTrailerOpen(false)}
         trailerUrl={activeTrailerUrl}
-        title={`${displayTitle} - Official Trailer`}
+        title={displayTitle}
       />
 
       {/* 18. DETAILED RATING MODAL — isOpen is gated on hasPremiered as a

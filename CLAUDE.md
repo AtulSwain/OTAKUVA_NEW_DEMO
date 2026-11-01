@@ -1981,6 +1981,19 @@ gaps against later phases, from the last audit (2026-08-28):
   Crunchyroll stories can't be filled (feed keeps only the latest 50; pages
   are client-rendered) — they keep the summary + link. Anime UK News feed
   returns 401. Tests: `tests/news-excerpt.test.ts`.
+- **Trailers play on OTAKUVA (2026-11-01, owner)**: the anime page's Trailer
+  buttons (hero, sticky bar, Episode Guide) are always shown; `TrailerModal`
+  plays the anime's own `trailerUrl` in an embedded player (YouTube via
+  youtube-nocookie with `playsinline`, or Dailymotion) — never a redirect.
+  No trailer → "This anime doesn't have a trailer." The old fallback that
+  embedded a YouTube *search* for the title (any video) is gone. Links/embeds
+  in `src/lib/media/trailer.ts` (`providerTrailerUrl`, `trailerEmbedUrl`);
+  the AniList adapter now also keeps Dailymotion trailers.
+  `scripts/backfill_trailers_anilist.ts [--apply]` fills empty `trailerUrl`
+  from AniList by AniList id (EditorialOverride respected, logged to
+  AnimeMetadataHistory as `trailer-anilist`): 2026-11-01 run added 170 —
+  7,180 of 18,121 anime have a trailer; AniList has none for the rest.
+  Re-run after big imports. Tests: `tests/trailer.test.ts`.
 - Real-world schedule spec: `docs/OTAKUVA_SCHEDULE_SPEC_v1.md` (AniList +
   AnimeSchedule.net dual-provider `ReleaseEvent` model, regional/sub/dub
   releases, delay tracking, admin conflict resolution). Not started.
