@@ -34,3 +34,15 @@ test('no trailer, or a link we cannot play, gives null (the page then says there
   // The old fallback played a YouTube *search* for the title — never again.
   assert.equal(trailerEmbedUrl('https://www.youtube.com/results?search_query=frieren'), null);
 });
+
+test('the site security policy lets the trailer players load in the page', async () => {
+  const { PRODUCTION_CSP } = await import('../src/lib/security/securityHeaders');
+  const frameSrc = PRODUCTION_CSP.split(';').map((d) => d.trim()).find((d) => d.startsWith('frame-src'));
+  assert.ok(frameSrc, 'no frame-src: iframes fall back to default-src self and are blocked');
+  for (const url of [
+    trailerEmbedUrl('https://www.youtube.com/watch?v=tR8YH0G67Rk')!,
+    trailerEmbedUrl('https://www.dailymotion.com/video/x7tgad0')!,
+  ]) {
+    assert.ok(frameSrc!.includes(new URL(url).origin), `${new URL(url).origin} not allowed by ${frameSrc}`);
+  }
+});
