@@ -90,3 +90,53 @@
 
 /* Page frame (2026-10-28): same centred width and side gutter as every page. */
 .footerInner { max-width: var(--page-max); margin-inline: auto; padding-left: var(--page-gutter); padding-right: var(--page-gutter); }
+
+/* Support contact (2026-11-01, owner): "Need a Hand?" under the brand line.
+   Laptops: brand left, support right on one row. Phones: stacked. */
+.footerInner .topRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 520px); gap: 40px 56px; align-items: start; }
+.support {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 22px 24px; border-radius: 18px;
+  background: var(--surface-base); border: 1px solid var(--border-subtle);
+}
+.supportHead { display: flex; align-items: center; gap: 10px; }
+.supportIcon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--surface-active); color: var(--text-primary); flex: none; }
+.supportTitle { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; color: var(--text-primary); }
+.supportText { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+.supportEmailRow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.supportEmail {
+  min-width: 0; overflow-wrap: anywhere;
+  font-size: 16px; font-weight: 700; color: var(--text-primary);
+  text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 4px;
+  transition: text-decoration-color var(--transition-fast), color var(--transition-fast);
+}
+.supportEmail:hover { text-decoration-color: currentColor; }
+.supportCopy {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-default);
+  background: transparent; color: var(--text-secondary); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+.supportCopy:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.supportCopy:active { background: var(--surface-active); }
+.supportCta {
+  align-self: flex-start; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; margin-top: 4px; padding: 0 22px; border-radius: 999px;
+  background: var(--text-primary); color: var(--bg-primary);
+  font-size: 14px; font-weight: 700; text-decoration: none;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+.supportCta:hover { opacity: 0.88; }
+.supportCta:active { transform: scale(0.98); }
+.supportEmail:focus-visible, .supportCopy:focus-visible, .supportCta:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 3px; border-radius: 999px; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (max-width: 960px) {
+  .footerInner .topRow { grid-template-columns: 1fr; gap: 24px; }
+  .footerInner .brandCol { max-width: none; }
+}
+@media (max-width: 520px) {
+  .support { padding: 18px; }
+  .supportCta { align-self: stretch; }
+}
+@media (prefers-reduced-motion: reduce) { .supportCta, .supportCopy, .supportEmail { transition: none; } }

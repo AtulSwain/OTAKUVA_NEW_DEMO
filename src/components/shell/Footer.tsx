@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Heart } from 'lucide-react';
+import { SupportContact } from './SupportContact';
 import styles from './Footer.module.css';
 
 // Owner, 2026-10-25: the link columns (Explore / Community / Studios &
@@ -17,6 +18,9 @@ export const Footer: React.FC = () => {
   return (
     <footer className={styles.footer} role="contentinfo">
       <div className={styles.footerInner}>
+        {/* Brand, then support right under "Track what you watch…" (phones: stacked;
+            laptops: side by side so the footer's right half isn't empty). */}
+        <div className={styles.topRow}>
         <div className={styles.brandCol}>
           <span className={styles.brandTitle}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -28,6 +32,8 @@ export const Footer: React.FC = () => {
             Not a streaming platform. Anime data from AniList and MyAnimeList (via Jikan) — see{' '}
             <Link href="/credits">data credits</Link>.
           </p>
+        </div>
+        <SupportContact />
         </div>
 
         <div className={styles.madeIn}>
