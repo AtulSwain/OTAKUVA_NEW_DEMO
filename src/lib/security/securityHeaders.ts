@@ -22,6 +22,10 @@ export const PRODUCTION_CSP = [
   "img-src 'self' https: data: blob:",
   "connect-src 'self' https:",
   "media-src 'self' https:",
+  // Embedded players allowed inside our pages: the anime trailer window
+  // (TrailerModal → src/lib/media/trailer.ts). Without this, frames fall
+  // back to default-src 'self' and the browser shows "This content is blocked".
+  "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://www.dailymotion.com https://geo.dailymotion.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
