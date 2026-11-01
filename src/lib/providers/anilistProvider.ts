@@ -13,6 +13,7 @@ import {
   ProviderTag,
   ProviderStreamingLink,
 } from './animeProvider.interface';
+import { providerTrailerUrl } from '../media/trailer';
 
 // [FLAGGED 2026-09-16 — see docs/production/THIRD_PARTY_DATA_COMPLIANCE.md
 // §2] AniList's terms of use prohibit "using the AniList API as a backup
@@ -386,9 +387,7 @@ function mapAniListAnime(media: any): ProviderAnime {
     posterUrl: media.coverImage?.extraLarge || media.coverImage?.large || media.coverImage?.medium || '',
     largePosterUrl: media.coverImage?.extraLarge || media.coverImage?.large || null,
     bannerUrl: media.bannerImage || null,
-    trailerUrl: media.trailer?.id && media.trailer?.site === 'youtube'
-      ? `https://www.youtube.com/watch?v=${media.trailer.id}`
-      : null,
+    trailerUrl: providerTrailerUrl(media.trailer?.site, media.trailer?.id),
     genres: Array.isArray(media.genres) ? media.genres : [],
     themes: [],
     tags: mapTags(media),
