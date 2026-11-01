@@ -32,6 +32,7 @@ import styles from './page.module.css';
 import front from '../components/home/FrontPage.module.css';
 import { HypeBoard, UpcomingRail } from '../components/hype/HypeBoard';
 import { CreatorsSpotlight } from '../components/home/CreatorsSpotlight';
+import { AnnouncedRail } from '../components/announced/AnnouncedRail';
 import { MemberCollectionsRail } from '../components/collections/MemberCollectionsRail';
 import { CommunityScoreBadge } from '../components/rating/CommunityScoreBadge';
 import { VerdictCount } from '../components/rating/VerdictCount';
@@ -236,6 +237,10 @@ export function HomeClient({
               </section>
             )}
             <Rankings rankings={fp.rankings} />
+            {/* Just announced (2026-11-01): newest announcements, their own section. */}
+            <div className={front.block}>
+              <AnnouncedRail />
+            </div>
             <div className={front.block}>
               <UpcomingRail />
             </div>
