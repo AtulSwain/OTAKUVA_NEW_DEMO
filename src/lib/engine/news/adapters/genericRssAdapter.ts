@@ -14,6 +14,7 @@
 import { newsProviderClient } from '../newsProviderClient';
 import { NewsProviderAdapter } from '../newsProvider.interface';
 import { ProviderHealthStatus, RawNewsArticle } from '../newsTypes';
+import { EXCERPT_CONTENT_TYPE, excerptFromFeedBody, excerptFromText } from '../articleExcerpt';
 
 export function unescapeXml(str: string): string {
   if (!str) return '';
@@ -129,12 +130,18 @@ export function parseRssFeed(xmlText: string, cfg: RssFeedConfig): RawNewsArticl
       block.match(/<img[^>]+src=["']([^"']+)["']/i);
     const imageUrl = mediaMatch ? mediaMatch[1] : null;
 
+    // Opening paragraphs: from the feed's body when it has one, else from a
+    // long description (some feeds put the whole story there). Only the start is kept.
+    const bodyMatch = block.match(/<content:encoded>([\s\S]*?)<\/content:encoded>/i);
+    const excerpt = excerptFromFeedBody(bodyMatch?.[1]) ?? (summary.length >= 300 ? excerptFromText(summary) : null);
+
     articles.push({
       externalId,
       provider: cfg.providerCode,
       title,
       summary,
-      contentType: 'SOURCE_METADATA',
+      content: excerpt,
+      contentType: excerpt ? EXCERPT_CONTENT_TYPE : 'SOURCE_METADATA',
       sourceName: cfg.sourceName,
       sourceUrl,
       canonicalUrl: sourceUrl,

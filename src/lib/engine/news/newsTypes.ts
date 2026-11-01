@@ -44,6 +44,7 @@ export type NewsStatus = 'INGESTED' | 'PENDING_REVIEW' | 'DRAFT' | 'PUBLISHED' |
 
 export type NewsContentType =
   | 'SOURCE_METADATA'
+  | 'SOURCE_EXCERPT' // the source's opening paragraphs, verbatim (articleExcerpt.ts)
   | 'OTAKUVA_SUMMARY'
   | 'LICENSED_CONTENT'
   | 'USER_GENERATED_CONTENT';

@@ -12,6 +12,7 @@
 import { newsProviderClient } from '../newsProviderClient';
 import { NewsProviderAdapter } from '../newsProvider.interface';
 import { ProviderHealthStatus, RawNewsArticle } from '../newsTypes';
+import { EXCERPT_CONTENT_TYPE, excerptFromFeedBody } from '../articleExcerpt';
 
 function unescapeXml(str: string): string {
   if (!str) return '';
@@ -135,12 +136,17 @@ export class CrunchyrollNewsAdapter implements NewsProviderAdapter {
         block.match(/<img[^>]+src=["']([^"']+)["']/i);
       const imageUrl = mediaMatch ? mediaMatch[1] : null;
 
+      // Opening paragraphs of the story (the feed carries the body; only the start is kept).
+      const bodyMatch = block.match(/<content:encoded>([\s\S]*?)<\/content:encoded>/i);
+      const excerpt = excerptFromFeedBody(bodyMatch?.[1]);
+
       articles.push({
         externalId,
         provider: 'CRUNCHYROLL',
         title,
         summary,
-        contentType: 'SOURCE_METADATA',
+        content: excerpt,
+        contentType: excerpt ? EXCERPT_CONTENT_TYPE : 'SOURCE_METADATA',
         sourceName: 'Crunchyroll News',
         sourceUrl,
         canonicalUrl: sourceUrl,

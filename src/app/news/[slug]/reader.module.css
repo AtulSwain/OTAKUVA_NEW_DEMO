@@ -1078,3 +1078,14 @@
 /* OTAKUVA's own stories (control center, 2026-10-28): the full text. */
 .ownStoryBody { display: flex; flex-direction: column; gap: 16px; max-width: 760px; margin: 8px 0 28px; color: var(--text-primary); font-size: 16.5px; line-height: 1.75; }
 .ownStoryBody p { margin: 0; white-space: pre-line; }
+
+/* Source excerpt (2026-11-01): the source's opening paragraphs, verbatim,
+   set apart with a hairline so it reads as quoted from the publisher. */
+.sourceExcerpt { display: flex; flex-direction: column; gap: 12px; max-width: 760px; margin: 4px 0 6px; padding-left: 18px; border-left: 2px solid var(--border-elevated); }
+.excerptLabel { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.excerptBody { display: flex; flex-direction: column; gap: 14px; color: var(--text-primary); font-size: 16.5px; line-height: 1.75; }
+.excerptBody p { margin: 0; }
+@media (max-width: 640px) {
+  .sourceExcerpt { padding-left: 14px; }
+  .excerptBody { font-size: 15.5px; line-height: 1.7; }
+}

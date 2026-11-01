@@ -20,6 +20,8 @@ import { animeCornerNewsAdapter } from './adapters/animeCornerNewsAdapter';
 import { animeHeraldNewsAdapter } from './adapters/animeHeraldNewsAdapter';
 import { animeUkNewsAdapter, animeFeministNewsAdapter, honeysAnimeNewsAdapter } from './adapters/moreRssAdapters';
 import { newsIngestionService } from './newsIngestionService';
+import { enrichMissingExcerpts } from './newsExcerptService';
+import { logger } from '../../logger';
 import { NewsProviderAdapter } from './newsProvider.interface';
 import { PUBLIC_RELEVANCE_WHERE } from './newsRelevanceService';
 import {
@@ -458,6 +460,13 @@ export class NewsEngine {
     for (const adapter of this.adapters.values()) {
       const res = await newsIngestionService.ingestFromProvider(adapter, { limit });
       results.push(res);
+    }
+    // Opening paragraphs for new stories whose feed didn't carry them.
+    // Best-effort: a failure here never affects the stored articles.
+    try {
+      await enrichMissingExcerpts({ limit: 10 });
+    } catch (err) {
+      logger.warn('news excerpt enrichment failed', { error: err instanceof Error ? err.message : String(err) });
     }
     return results;
   }
