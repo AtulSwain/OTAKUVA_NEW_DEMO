@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { CalendarDays, Clapperboard, Newspaper, PlayCircle, Sparkles } from 'lucide-react';
+import { Building2, CalendarDays, Clapperboard, Newspaper, PlayCircle, Sparkles } from 'lucide-react';
 import type { AnnouncedAnime } from '../../lib/announcements/announcedAnime';
 import { StudioLogo } from '../entity/StudioLogo';
 import { isWideBanner } from '../../lib/media/heroArt';
@@ -86,17 +86,23 @@ export function AnnouncedCard({ anime: a, compact = false, hideStudios = false }
           )}
         </p>
 
-        {!hideStudios && a.studios.length > 0 && (
-          <ul className={styles.studios} aria-label="Studios">
-            {a.studios.slice(0, compact ? 2 : 3).map((s) => (
-              <li key={s.id}>
-                <Link href={`/studio/${s.slug || s.id}`} className={styles.studio}>
-                  <StudioLogo name={s.name} src={s.logoUrl} size="sm" />
-                  <span>{s.name}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+        {!hideStudios && (
+          <p className={styles.studioLine}>
+            <Building2 size={14} aria-hidden="true" />
+            {a.studios.length > 0 ? (
+              <span className={styles.studioNames}>
+                {a.studios.slice(0, compact ? 2 : 3).map((s, i) => (
+                  <React.Fragment key={s.id}>
+                    {i > 0 && ', '}
+                    <Link href={`/studio/${s.slug || s.id}`}>{s.name}</Link>
+                  </React.Fragment>
+                ))}
+                {a.studios.length > (compact ? 2 : 3) && ` +${a.studios.length - (compact ? 2 : 3)}`}
+              </span>
+            ) : (
+              <span className={styles.muted}>Studio not announced yet</span>
+            )}
+          </p>
         )}
 
         {a.genres.length > 0 && (
