@@ -2045,8 +2045,11 @@ gaps against later phases, from the last audit (2026-08-28):
     case-insensitive uniqueness, signs in, sessions kept) or **Reset
     password** (typed twice → existing password-reset route). Settings still
     uses `PasswordResetFlow`. Tests in `tests/phone-auth.test.ts`.
-  - *Footer*: "Need a Hand?" box removed; Company / Help / Legal link
-    columns. Support address now on `/support` (help tiles + "How support
+  - *Footer*: "Need a Hand?" box removed. Then (owner, same day) no link
+    columns either: under "Made with ♥ from India" one line — About Us ·
+    Advertise with us (mailto, subject "Advertising with OTAKUVA" — no ads
+    page) · Privacy Policy · Terms & Conditions · Report (/report-content) ·
+    Contact Us (/support). Support address now on `/support` (help tiles + "How support
     works" = support terms) and `/about` (what OTAKUVA is, "About me" from
     `src/content/about.ts` — hidden until the owner fills it in, support card)
     via `src/components/support/SupportEmailCard.tsx`. `/terms` is real
