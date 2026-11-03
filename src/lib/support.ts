@@ -12,3 +12,6 @@ export const supportMailto = (): string => `mailto:${SUPPORT_EMAIL}`;
 
 /** Pre-addressed email with the support subject filled in. */
 export const supportRequestMailto = (): string => `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(SUPPORT_SUBJECT)}`;
+
+/** "Advertise with us" in the footer (2026-11-03): no ads page yet, so it's an email. */
+export const advertiseMailto = (): string => `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Advertising with OTAKUVA')}`;
