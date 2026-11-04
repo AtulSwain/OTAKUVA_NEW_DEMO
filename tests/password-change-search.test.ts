@@ -10,6 +10,12 @@ import { normalizePhone } from '../src/lib/identity/phoneNumber';
 import { peekDevOtp } from '../src/lib/identity/otpService';
 import { matchKind, searchAnimeIdsByTitle, titleMatchPatterns } from '../src/lib/fuzzySearch';
 import { searchCatalog } from '../src/lib/search';
+
+// Never real SMS in tests: the dev stand-in issues codes and peekDevOtp() reads them.
+delete process.env.TWILIO_ACCOUNT_SID;
+delete process.env.TWILIO_AUTH_TOKEN;
+delete process.env.TWILIO_VERIFY_SERVICE_SID;
+delete process.env.PHONE_OTP_MODE;
 import { createAnime, createUser } from './helpers/fixtures';
 import { read } from './helpers/http';
 import { POST as sendOtpPOST } from '../src/app/api/auth/phone/send-otp/route';

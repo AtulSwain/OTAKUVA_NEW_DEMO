@@ -2055,6 +2055,36 @@ gaps against later phases, from the last audit (2026-08-28):
     via `src/components/support/SupportEmailCard.tsx`. `/terms` is real
     plain-language Terms & Conditions (placeholder banner removed; India
     governing law and 13+ are owner choices; lawyer read still advised).
+- **Google sign-in replaced phone/SMS (2026-11-04, owner)** — supersedes the
+  phone notes above for the UI. Sign-up: "Sign up with Google" →
+  `GET /api/auth/google?intent=register|creator` → Google → `/api/auth/google/callback`
+  → new email: signed Google pass (httpOnly `otakuva_gpass`, 15 min, own JWT
+  audience) → `/auth/google` page: username (+ channel for creators) +
+  password typed twice → `POST /api/auth/register { username, password }`
+  (no `pass`/`phone` = Google path; sets `email` + `emailVerifiedAt`). Email
+  already on an account → just signed in. Sign In = username + password or
+  "Sign in with Google". Forgot password/username + Settings "Change
+  password" = `intent=reset` → `/auth/google?step=reset` →
+  `POST /api/auth/password-reset/google`. `intent=link` verifies an email on
+  a signed-in older account (Settings, the verify banner/prompt).
+  "Verified" (`requireVerifiedUser`, session `phoneVerified`) = Google email
+  OR an older verified phone; still switched by `PHONE_VERIFICATION_REQUIRED`
+  and still answers code `PHONE_NOT_VERIFIED` for client compat. Code:
+  `src/lib/identity/googleAuth.ts`. Needs `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`
+  (see `.env.example`); without them the button lands on "isn't set up yet".
+  Phone/OTP API routes are left in place, unused by the UI. Tests:
+  `tests/google-auth.test.ts`.
+- **Email-code sign-up + welcome email (2026-11-04, owner)**: Create Account
+  is now email → 6-digit code (`POST /api/auth/email/send-code`, code hash in
+  a signed httpOnly cookie `otakuva_ecode`, 10 min, 5 sends + 5 wrong tries
+  per email per 15 min) → `POST /api/auth/email/verify-code` → the same
+  verified-email pass as Google → username + password (`GoogleFinish`) →
+  `POST /api/auth/register`, which sends a welcome email
+  (`src/lib/email/authEmails.ts`). "Sign up with Google" stays as the other
+  option. Mail goes out through Gmail SMTP (`SMTP_USER` + App Password
+  `SMTP_PASS`, nodemailer) — no domain needed; Resend is the fallback.
+  Without email set up, dev shows the code in the form (`devCode`) and
+  production refuses (503). Tests in `tests/google-auth.test.ts`.
 - **Support contact (2026-11-01, owner; moved to /support + /about 2026-11-03)**: "Need a Hand?" in the site footer
   (`src/components/shell/SupportContact.tsx`), right under the brand line
   "Track what you watch…" — stacked on phones, brand left / support right on

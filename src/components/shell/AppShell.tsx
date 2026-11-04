@@ -47,7 +47,7 @@ const ShellContent: React.FC<AppShellProps> = ({ children }) => {
   // A single community (/community/<slug>) is its own full-screen workspace,
   // Discord-style: no site header, footer or bottom nav around it.
   // The /welcome landing page and the /control admin console are full-screen too.
-  const isImmersive = /^\/community\/(?!create(?:\/|$))[^/]+\/?$/.test(pathname) || pathname === '/welcome' || pathname === '/control' || pathname.startsWith('/control/');
+  const isImmersive = /^\/community\/(?!create(?:\/|$))[^/]+\/?$/.test(pathname) || pathname === '/welcome' || pathname.startsWith('/auth/') || pathname === '/control' || pathname.startsWith('/control/');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
 

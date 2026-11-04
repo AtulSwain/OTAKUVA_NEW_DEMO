@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Smartphone, X } from 'lucide-react';
+import { MailCheck, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { promptPhoneVerification } from './VerifyPhonePrompt';
+import { startGoogle } from './AuthForm';
 import styles from './VerifyPhoneBanner.module.css';
 
 const DISMISS_KEY = 'otakuva_verify_phone_banner_dismissed';
@@ -30,11 +30,11 @@ export function VerifyPhoneBanner() {
 
   return (
     <div className={styles.banner} role="status">
-      <Smartphone size={18} className={styles.icon} aria-hidden="true" />
+      <MailCheck size={18} className={styles.icon} aria-hidden="true" />
       <p className={styles.text}>
-        <strong>Verify your phone to rate, review and post.</strong> It takes one SMS code.
+        <strong>Verify your email to rate, review and post.</strong> It takes one click with Google.
       </p>
-      <button type="button" className={styles.action} onClick={() => promptPhoneVerification('rate')}>
+      <button type="button" className={styles.action} onClick={() => startGoogle('link')}>
         Verify now
       </button>
       <button

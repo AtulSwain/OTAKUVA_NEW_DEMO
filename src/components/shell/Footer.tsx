@@ -13,7 +13,7 @@ const LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: '/privacy', label: 'Privacy Policy' },
   { href: '/terms', label: 'Terms & Conditions' },
   { href: '/report-content', label: 'Report' },
-  { href: '/support', label: 'Contact Us' },
+  { href: '/support#contact', label: 'Contact Us' },
 ];
 
 export const Footer: React.FC = () => {

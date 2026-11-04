@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Flag, KeyRound, ScrollText, ShieldCheck, Download, Database } from 'lucide-react';
 import { PageHead } from '../../components/ui/PageHead';
 import { SupportEmailCard } from '../../components/support/SupportEmailCard';
-import { SUPPORT_EMAIL } from '../../lib/support';
+import { BUSINESS_EMAIL, SUPPORT_EMAIL, businessMailto } from '../../lib/support';
 import styles from '../info.module.css';
 
 export const metadata: Metadata = {
@@ -18,10 +18,10 @@ export const metadata: Metadata = {
  * only, reply aim matches the Privacy Policy's 7 days). Change both pages
  * together if that changes.
  */
-const UPDATED = '3 November 2026';
+const UPDATED = '4 November 2026';
 
 const SELF_HELP = [
-  { href: '/forgot-password', icon: KeyRound, title: 'Forgot password or username', text: 'Get a code on your registered mobile number, then reset your username or password.' },
+  { href: '/forgot-password', icon: KeyRound, title: 'Forgot password or username', text: 'Confirm it’s you with Google, then see your username and choose a new password.' },
   { href: '/report-content', icon: Flag, title: 'Report content', text: 'Spam, harassment, spoilers or anything that breaks the rules — send it to our moderators.' },
   { href: '/settings', icon: Download, title: 'Download or delete your data', text: 'Settings → Your data gives you a full copy; Delete account removes it for good.' },
   { href: '/community-guidelines', icon: ShieldCheck, title: 'Community guidelines', text: 'What is and isn’t allowed in reviews, discussions and communities.' },
@@ -49,6 +49,20 @@ export default function SupportPage() {
           you’d like the reply sent to.
         </p>
       </section>
+
+      {/* Contact us (2026-11-04, owner): one business address only. Hidden until NEXT_PUBLIC_BUSINESS_EMAIL is set. */}
+      {BUSINESS_EMAIL && (
+        <section id="contact" className={styles.section} aria-labelledby="support-business">
+          <p className={styles.kicker}>Contact us</p>
+          <h2 id="support-business" className={styles.heading}>
+            Business &amp; partnerships
+          </h2>
+          <SupportEmailCard id="business-email-address" title="Business email" email={BUSINESS_EMAIL} ctaLabel="Email us" ctaHref={businessMailto()} />
+          <p className={styles.body}>
+            For partnerships, advertising, press and media. For help with your account, use the support address above.
+          </p>
+        </section>
+      )}
 
       <section className={styles.section} aria-labelledby="support-self">
         <p className={styles.kicker}>Quick help</p>
@@ -84,13 +98,12 @@ export default function SupportPage() {
             not a guaranteed service level.
           </li>
           <li>
-            <strong>We will never ask for your password or SMS code.</strong> Nobody from OTAKUVA needs them. If someone asks, it isn’t us — don’t
+            <strong>We will never ask for your password or sign-in code.</strong> Nobody from OTAKUVA needs them. If someone asks, it isn’t us — don’t
             share them, and change your password.
           </li>
           <li>
-            <strong>Proving an account is yours.</strong> Account changes (username, password, number) are done through codes sent to the mobile
-            number on the account. If you’ve lost that number, we may ask questions only the real owner can answer before helping, and we may
-            refuse if we can’t be sure.
+            <strong>Proving an account is yours.</strong> Password changes are done by confirming the account’s email with Google. If you’ve lost
+            access to that email, we may ask questions only the real owner can answer before helping, and we may refuse if we can’t be sure.
           </li>
           <li>
             <strong>What we can help with.</strong> Signing in, your account and data, bugs, wrong or missing anime information, reports about

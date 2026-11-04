@@ -14,8 +14,10 @@ export interface AuthUser {
   avatarUrl?: string | null;
   bannerUrl?: string | null;
   bio?: string | null;
-  /** False until a phone number is verified by SMS code; gates rating, reviewing and posting. */
+  /** False until the account is verified (Google-confirmed email, or an older verified phone); gates rating, reviewing and posting. */
   phoneVerified?: boolean;
+  /** True once Google confirmed the account's email (2026-11-04). */
+  emailVerified?: boolean;
   /** e.g. "+91 ••••••3210" — the full number never reaches the client. */
   phoneMasked?: string | null;
   /** False while phone verification is switched off site-wide; no prompts are shown then. */
@@ -69,6 +71,10 @@ interface AuthContextType {
   resetUsernameWithPhone: (pass: string, username: string) => Promise<AuthResult>;
   /** Sets a new password from a verified phone pass ("Forgot password"), and signs in. */
   resetPasswordWithPhone: (pass: string, password: string) => Promise<AuthResult>;
+  /** Google sign-up (2026-11-04): the Google-verified email (httpOnly cookie) + username + password → account, signed in. */
+  registerWithGoogle: (username: string, password: string) => Promise<AuthResult>;
+  /** Forgot / change password after Google confirmed the account's email. */
+  resetPasswordWithGoogle: (password: string) => Promise<AuthResult>;
   /** Replaces the signed-in user after a server-side change (e.g. phone linked). */
   setSessionUser: (user: AuthUser) => void;
   logout: () => Promise<void>;
@@ -251,6 +257,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return finishSignIn(ok, data, 'Failed to create account.');
   };
 
+  const registerWithGoogle = async (username: string, password: string) => {
+    const { ok, data } = await postAuth('/api/auth/register', { username, password });
+    return finishSignIn(ok, data, 'Failed to create account.');
+  };
+
+  const resetPasswordWithGoogle = async (password: string) => {
+    const { ok, data } = await postAuth('/api/auth/password-reset/google', { password });
+    return finishSignIn(ok, data, 'Could not save the new password.');
+  };
+
   const resetPasswordWithPhone = async (pass: string, password: string) => {
     const { ok, data } = await postAuth('/api/auth/password-reset/phone', { pass, password });
     return finishSignIn(ok, data, 'Could not save the new password.');
@@ -328,6 +344,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         verifyPhoneCode,
         register,
         resetPasswordWithPhone,
+        registerWithGoogle,
+        resetPasswordWithGoogle,
         verifyResetCode,
         resetUsernameWithPhone,
         setSessionUser: applySession,

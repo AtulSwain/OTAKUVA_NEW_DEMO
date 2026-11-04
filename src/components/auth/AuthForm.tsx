@@ -113,12 +113,18 @@ function PasswordPanel({
   submitLabel,
   onSubmit,
   onRestart,
+  blocked = false,
+  focus = true,
 }: {
   phoneLabel: string;
   username?: string;
   submitLabel: string;
   onSubmit: (password: string) => Promise<AuthResult>;
   onRestart: () => void;
+  /** True while something else on the form (e.g. the username) isn't ready. */
+  blocked?: boolean;
+  /** Focus the password box on open (off when another field comes first). */
+  focus?: boolean;
 }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -127,7 +133,7 @@ function PasswordPanel({
 
   const problem = password ? validatePassword(password, username) : null;
   const mismatch = confirm.length > 0 && confirm !== password;
-  const ready = password.length > 0 && !problem && confirm === password;
+  const ready = password.length > 0 && !problem && confirm === password && !blocked;
   const strength = passwordStrength(password, username);
 
   const submit = async (e: React.FormEvent) => {
@@ -162,7 +168,7 @@ function PasswordPanel({
         <label className={styles.label} htmlFor="new-password">
           New password
         </label>
-        <PasswordInput id="new-password" value={password} onChange={setPassword} placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`} autoComplete="new-password" autoFocus invalid={Boolean(problem)} />
+        <PasswordInput id="new-password" value={password} onChange={setPassword} placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`} autoComplete="new-password" autoFocus={focus} invalid={Boolean(problem)} />
         <div className={seg.meter} data-level={strength} aria-hidden="true">
           <span />
           <span />
@@ -207,6 +213,448 @@ function PasswordPanel({
         )}
       </button>
     </form>
+  );
+}
+
+// ── Google sign-in (2026-11-04, owner) ─────────────────────────────────
+// Replaces phone/SMS: Google confirms the email, then a new member picks a
+// username + password on /auth/google. Server: src/app/api/auth/google/**.
+
+export type GoogleIntent = 'login' | 'register' | 'creator' | 'reset' | 'link';
+
+/** Where to come back to after Google: this page, unless it's an auth page. */
+function returnPath(): string {
+  if (typeof window === 'undefined') return '/';
+  const { pathname, search } = window.location;
+  if (pathname.startsWith('/welcome') || pathname.startsWith('/auth') || pathname.startsWith('/forgot-password')) return '/';
+  return pathname + search;
+}
+
+export function startGoogle(intent: GoogleIntent, next?: string) {
+  window.location.href = `/api/auth/google?intent=${intent}&next=${encodeURIComponent(next ?? returnPath())}`;
+}
+
+function GoogleMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  );
+}
+
+export function GoogleButton({ intent, label, next }: { intent: GoogleIntent; label?: string; next?: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      className={seg.googleBtn}
+      disabled={busy}
+      onClick={() => {
+        setBusy(true);
+        startGoogle(intent, next);
+      }}
+    >
+      {busy ? <Loader2 size={16} className={styles.spin} /> : <GoogleMark />}
+      <span>{label ?? 'Continue with Google'}</span>
+    </button>
+  );
+}
+
+const GOOGLE_ERRORS: Record<string, string> = {
+  NOT_CONFIGURED: 'Google sign-in isn’t set up on this server yet.',
+  CANCELLED: 'Google sign-in was cancelled.',
+  STATE_MISMATCH: 'That sign-in link expired. Please try again.',
+  EMAIL_NOT_VERIFIED: 'Google hasn’t verified that email address.',
+  GOOGLE_FAILED: 'Google sign-in didn’t work. Please try again.',
+  NO_ACCOUNT: 'No OTAKUVA account uses that Google email. Create an account instead.',
+  EMAIL_IN_USE: 'That Google email already belongs to another OTAKUVA account.',
+  SIGNED_OUT: 'Sign in first, then verify your email.',
+};
+
+export function googleErrorText(code: string | null | undefined): string | null {
+  if (!code) return null;
+  return GOOGLE_ERRORS[code] ?? 'Google sign-in didn’t work. Please try again.';
+}
+
+type GooglePending = { email: string; name: string | null; intent: GoogleIntent; username: string | null };
+
+/**
+ * The page Google returns to (/auth/google): new members choose a username
+ * (+ channel for creators) and a password; "forgot / change password" sets a
+ * new password. Both sign this device in.
+ */
+export function GoogleFinish({ onDone, compact = false }: { onDone: (res: AuthResult, intent: GoogleIntent) => void; /** Card already shows a heading (landing look). */ compact?: boolean }) {
+  const { registerWithGoogle, resetPasswordWithGoogle, refreshUser } = useAuth();
+  const { showToast } = useToast();
+  const [pending, setPending] = useState<GooglePending | null | undefined>(undefined);
+  const [username, setUsername] = useState('');
+  const [channelName, setChannelName] = useState('');
+  const [channelUrl, setChannelUrl] = useState('');
+
+  useEffect(() => {
+    fetch('/api/auth/google/pending', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => setPending(d?.pending ?? null))
+      .catch(() => setPending(null));
+  }, []);
+
+  const signingUp = pending?.intent === 'register' || pending?.intent === 'creator';
+  const creator = pending?.intent === 'creator';
+  const usernameStatus = useUsernameAvailability(username, Boolean(signingUp));
+  const channelError = creator ? channelProblem(channelName, channelUrl) : null;
+  const showChannelError = Boolean(channelError && (channelName.trim() || channelUrl.trim()));
+
+  if (pending === undefined) {
+    return (
+      <p className={styles.fieldNote}>
+        <Loader2 size={14} className={styles.spin} /> Loading…
+      </p>
+    );
+  }
+  if (pending === null) {
+    return (
+      <div className={seg.stack}>
+        <p className={styles.fieldNote}>Your Google sign-in expired. Please start again.</p>
+        <GoogleButton intent="login" next="/" />
+      </div>
+    );
+  }
+
+  const restart = () => startGoogle(pending.intent === 'reset' ? 'reset' : pending.intent, '/');
+
+  if (pending.intent === 'reset') {
+    return (
+      <div className={seg.stack}>
+        <div>
+          {!compact && <p className={seg.stepTitle}>Choose a new password</p>}
+          <p className={styles.fieldNote}>
+            Your username is <strong>@{pending.username}</strong>. Type your new password twice — other devices will be signed out.
+          </p>
+        </div>
+        <PasswordPanel
+          phoneLabel={pending.email}
+          username={pending.username ?? undefined}
+          submitLabel="Save password & sign in"
+          onRestart={restart}
+          onSubmit={async (pw) => {
+            const res = await resetPasswordWithGoogle(pw);
+            if (res.success) {
+              showToast('New password saved. Other devices have been signed out.', 'success', 6000);
+              onDone(res, 'reset');
+            }
+            return res;
+          }}
+        />
+      </div>
+    );
+  }
+
+  const create = async (pw: string): Promise<AuthResult> => {
+    const res = await registerWithGoogle(username.trim(), pw);
+    if (!res.success) return res;
+    if (!creator) {
+      showToast(`Welcome to OTAKUVA, ${username.trim()}!`, 'success');
+      onDone(res, 'register');
+      return res;
+    }
+    let role = res.role;
+    try {
+      const up = await fetch('/api/creator/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelName: channelName.trim(), channelUrl: channelUrl.trim() || undefined }),
+      });
+      if (up.ok) {
+        role = 'CREATOR';
+        await refreshUser();
+        showToast(`Welcome to OTAKUVA, ${channelName.trim()}! Creator mode is on.`, 'success');
+      } else {
+        const data = await up.json().catch(() => ({}));
+        showToast(`Your account is ready, but creator mode didn't turn on: ${data.error || 'try "Become a creator" from your menu.'}`, 'error', 8000);
+      }
+    } catch {
+      showToast('Your account is ready, but creator mode didn\'t turn on. Use "Become a creator" from your menu.', 'error', 8000);
+    }
+    onDone({ ...res, role }, 'creator');
+    return res;
+  };
+
+  return (
+    <div className={seg.stack}>
+      {!compact && (
+        <div>
+          <p className={seg.stepTitle}>{creator ? 'Set up your creator account' : 'Create your account'}</p>
+          <p className={styles.fieldNote}>Choose a username and a password. You’ll sign in with these.</p>
+        </div>
+      )}
+      <div className={styles.inputGroup}>
+        <label className={styles.label} htmlFor="google-username">
+          Username
+        </label>
+        <div className={styles.inputWithStatus}>
+          <input
+            id="google-username"
+            type="text"
+            className={`${styles.input} ${usernameStatus.kind === 'available' ? styles.inputOk : usernameStatus.kind === 'unavailable' ? styles.inputBad : ''}`}
+            placeholder="e.g. otaku_collector"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            maxLength={USERNAME_MAX_LENGTH}
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            autoFocus
+            aria-describedby="google-username-status"
+          />
+          <span className={styles.statusIcon} aria-hidden="true">
+            {usernameStatus.kind === 'checking' && <Loader2 size={15} className={styles.spin} />}
+            {usernameStatus.kind === 'available' && <CheckCircle2 size={16} className={styles.ok} />}
+            {usernameStatus.kind === 'unavailable' && <XCircle size={16} className={styles.bad} />}
+          </span>
+        </div>
+        <p
+          id="google-username-status"
+          className={`${styles.fieldNote} ${usernameStatus.kind === 'available' ? styles.ok : usernameStatus.kind === 'unavailable' ? styles.bad : ''}`}
+          aria-live="polite"
+        >
+          {usernameStatus.kind === 'available'
+            ? 'Username is available.'
+            : usernameStatus.kind === 'unavailable' || usernameStatus.kind === 'error'
+            ? usernameStatus.message
+            : usernameStatus.kind === 'checking'
+            ? 'Checking…'
+            : `At least ${USERNAME_MIN_LENGTH} characters: letters, numbers, _ and .`}
+        </p>
+      </div>
+      {creator && (
+        <>
+          <div className={styles.inputGroup}>
+            <label className={styles.label} htmlFor="google-channel-name">
+              Channel name
+            </label>
+            <input id="google-channel-name" type="text" className={styles.input} placeholder="e.g. Anime Unboxed" value={channelName} onChange={(e) => setChannelName(e.target.value)} maxLength={CHANNEL_NAME_MAX} />
+          </div>
+          <div className={styles.inputGroup}>
+            <label className={styles.label} htmlFor="google-channel-url">
+              Channel link
+            </label>
+            <input
+              id="google-channel-url"
+              type="url"
+              inputMode="url"
+              className={styles.input}
+              placeholder="https://youtube.com/@yourchannel"
+              value={channelUrl}
+              onChange={(e) => setChannelUrl(e.target.value)}
+              maxLength={CHANNEL_URL_MAX}
+              autoCapitalize="none"
+              spellCheck={false}
+            />
+            <p className={`${styles.fieldNote} ${showChannelError ? styles.bad : ''}`} aria-live="polite">
+              {showChannelError ? channelError : 'YouTube, Instagram, TikTok, X… a full https:// link.'}
+            </p>
+          </div>
+        </>
+      )}
+      <PasswordPanel
+        phoneLabel={pending.email}
+        username={username.trim() || undefined}
+        submitLabel={creator ? 'Join as creator' : 'Create Account'}
+        blocked={usernameStatus.kind !== 'available' || Boolean(channelError)}
+        focus={false}
+        onRestart={restart}
+        onSubmit={create}
+      />
+      <p className={seg.consent}>
+        By creating an account you agree to our{' '}
+        <a href="/terms" target="_blank" rel="noopener">
+          Terms
+        </a>{' '}
+        and{' '}
+        <a href="/privacy" target="_blank" rel="noopener">
+          Privacy Policy
+        </a>
+        . Your email is never shown to anyone.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Email sign-up (2026-11-04, owner): email → 6-digit code by email → then the
+ * same username + password step as Google (GoogleFinish), and a welcome email.
+ */
+function EmailSignup({ intent, autoFocus, onDone, onVerified }: { intent: 'register' | 'creator'; autoFocus?: boolean; onDone: (res: AuthResult) => void; onVerified?: () => void }) {
+  const { showToast } = useToast();
+  const [step, setStep] = useState<'email' | 'code' | 'finish'>('email');
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const sendCode = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (busy) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch('/api/auth/email/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), intent }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Could not send the code.');
+        return;
+      }
+      setDevCode(typeof data.devCode === 'string' ? data.devCode : null);
+      setCode('');
+      setStep('code');
+      setCooldown(30);
+      showToast(`Code sent to ${data.email || email.trim()}`, 'success');
+    } catch {
+      setError('Could not reach the server. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy || code.trim().length !== 6) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch('/api/auth/email/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'That code didn’t work.');
+        if (data.code === 'CODE_EXPIRED') setStep('email');
+        return;
+      }
+      setStep('finish');
+      onVerified?.();
+    } catch {
+      setError('Could not reach the server. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (step === 'finish') return <GoogleFinish compact onDone={(res) => onDone(res)} />;
+
+  const stepState = (n: number) => {
+    const cur = step === 'email' ? 1 : 2;
+    return { 'data-on': cur === n ? 'true' : undefined, 'data-done': cur > n ? 'true' : undefined };
+  };
+
+  return (
+    <div className={seg.stack}>
+      <ol className={seg.steps} aria-label="Steps">
+        <li {...stepState(1)}>Email</li>
+        <li {...stepState(2)}>Code</li>
+        <li {...stepState(3)}>Username &amp; password</li>
+      </ol>
+
+      {step === 'email' ? (
+        <form className={seg.stack} onSubmit={sendCode} noValidate>
+          <div className={styles.inputGroup}>
+            <label className={styles.label} htmlFor="signup-email">
+              Email
+            </label>
+            <input
+              id="signup-email"
+              type="email"
+              inputMode="email"
+              className={styles.input}
+              placeholder="you@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              autoFocus={autoFocus}
+            />
+            <p className={styles.fieldNote}>We’ll email you a 6-digit code.</p>
+          </div>
+          {error && <div className={styles.errorBox}>{error}</div>}
+          <button type="submit" className={styles.submitBtn} disabled={busy || !email.includes('@')}>
+            {busy ? (
+              <span className={styles.loadingSpan}>
+                <Loader2 size={15} className={styles.spin} />
+                <span>Sending…</span>
+              </span>
+            ) : (
+              'Send code'
+            )}
+          </button>
+        </form>
+      ) : (
+        <form className={seg.stack} onSubmit={verify} noValidate>
+          <div className={styles.inputGroup}>
+            <label className={styles.label} htmlFor="signup-code">
+              Code sent to {email.trim()}
+            </label>
+            <input
+              id="signup-code"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              className={`${styles.input} ${seg.codeInput}`}
+              placeholder="••••••"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              maxLength={6}
+              autoFocus
+            />
+            <p className={styles.fieldNote}>
+              {devCode ? (
+                <>
+                  Email isn’t set up on this computer — your code is <strong>{devCode}</strong>.
+                </>
+              ) : (
+                'Check your inbox (and spam). The code expires in 10 minutes.'
+              )}
+            </p>
+          </div>
+          {error && <div className={styles.errorBox}>{error}</div>}
+          <button type="submit" className={styles.submitBtn} disabled={busy || code.length !== 6}>
+            {busy ? (
+              <span className={styles.loadingSpan}>
+                <Loader2 size={15} className={styles.spin} />
+                <span>Checking…</span>
+              </span>
+            ) : (
+              'Verify code'
+            )}
+          </button>
+          <div className={seg.codeLinks}>
+            <button type="button" className={seg.altLink} onClick={() => { setStep('email'); setError(null); }}>
+              Change email
+            </button>
+            <button type="button" className={seg.altLink} onClick={() => sendCode()} disabled={cooldown > 0 || busy}>
+              {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
 
@@ -745,14 +1193,13 @@ export function AccountRecoveryFlow({
 
 /**
  * The sign-in / sign-up form, shared by the AuthModal pop-up and the
- * /welcome landing page (2026-10-28 flow):
- *   Sign In        — username + password, or mobile number + SMS code
- *                    (OTP sign-in, 2026-11-03); "Forgot password or username?"
- *   Create Account — username → phone → SMS code → password + confirm
- *   Creator        — same, plus channel name + link, then the existing
- *                    creator upgrade (POST /api/creator/upgrade)
- *   Forgot         — AccountRecoveryFlow: username or phone → SMS code →
- *                    Reset username / Reset password, typed twice
+ * /welcome landing page. Since 2026-11-04 (owner) there is no phone/SMS:
+ *   Sign In        — username + password, or "Continue with Google"
+ *   Create Account — "Continue with Google" (verifies the email) → on
+ *                    /auth/google: username + password
+ *   Creator        — same, plus channel name + link there, then the creator
+ *                    upgrade (POST /api/creator/upgrade)
+ *   Forgot         — Google confirms the email → new password (username shown)
  */
 export function AuthForm({
   mode,
@@ -775,54 +1222,23 @@ export function AuthForm({
   /** Pill tabs with a sliding highlight (landing page). */
   segmented?: boolean;
 }) {
-  const { loginWithPassword, loginWithPhone, verifyPhoneCode, register, refreshUser } = useAuth();
+  const { loginWithPassword } = useAuth();
   const { showToast } = useToast();
 
-  // Sign in
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [forgot, setForgot] = useState(false);
-  const [loginBy, setLoginBy] = useState<'password' | 'otp'>('password');
-
-  // Sign up / creator / forgot
-  const [username, setUsername] = useState('');
-  const [channelName, setChannelName] = useState('');
-  const [channelUrl, setChannelUrl] = useState('');
-  const [verified, setVerified] = useState<{ pass: string; label: string } | null>(null);
-  // Remounts the phone flow (back to the number step).
-  const [flowKey, setFlowKey] = useState(0);
+  const [emailVerified, setEmailVerified] = useState(false);
 
   const signingUp = mode === 'register' || mode === 'creator';
-  const usernameStatus = useUsernameAvailability(username, signingUp);
-  const usernameOk = usernameStatus.kind === 'available';
-  const channelError = mode === 'creator' ? channelProblem(channelName, channelUrl) : null;
-  const showChannelError = Boolean(channelError && (channelName.trim() || channelUrl.trim()));
-
-  const restartPhone = () => {
-    setVerified(null);
-    setFlowKey((k) => k + 1);
-  };
 
   const switchMode = (next: AuthMode) => {
     setForgot(false);
+    setEmailVerified(false);
     setLoginError(null);
-    restartPhone();
     onModeChange(next);
-  };
-
-  const onPhoneErrorCode = (code: string) => {
-    if (code === 'PHONE_IN_USE' && signingUp) {
-      showToast(
-        mode === 'creator'
-          ? 'That number already has an account. Sign in, then choose "Become a creator" from your menu.'
-          : 'That number already has an account. Sign in instead.',
-        'info',
-        7000,
-      );
-      switchMode('login');
-    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -843,55 +1259,6 @@ export function AuthForm({
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const loginByCode = async (phone: string, country: string, code: string): Promise<AuthResult> => {
-    const res = await loginWithPhone(phone, country, code);
-    if (res.success) {
-      showToast('Signed in.', 'success');
-      onSignedIn?.(res);
-    }
-    return res;
-  };
-
-  // Verifies the SMS code → shows the password panel.
-  const verifyCode = (purpose: 'register') => async (phone: string, country: string, code: string): Promise<AuthResult> => {
-    const res = await verifyPhoneCode(purpose, phone, country, code);
-    if (res.success && res.pass) setVerified({ pass: res.pass, label: phone.trim() });
-    return res;
-  };
-
-  const createAccount = async (pw: string): Promise<AuthResult> => {
-    if (!verified) return { success: false, error: 'Verify your phone first.' };
-    const res = await register(username.trim(), pw, verified.pass);
-    if (!res.success) return res;
-    if (mode !== 'creator') {
-      showToast(`Welcome to OTAKUVA, ${username.trim()}!`, 'success');
-      onSignedIn?.(res);
-      return res;
-    }
-    // Creator: the account exists now. Turn on creator mode with the same
-    // server step /creator uses (POST /api/creator/upgrade).
-    let role = res.role;
-    try {
-      const up = await fetch('/api/creator/upgrade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelName: channelName.trim(), channelUrl: channelUrl.trim() || undefined }),
-      });
-      if (up.ok) {
-        role = 'CREATOR';
-        await refreshUser();
-        showToast(`Welcome to OTAKUVA, ${channelName.trim()}! Creator mode is on.`, 'success');
-      } else {
-        const data = await up.json().catch(() => ({}));
-        showToast(`Your account is ready, but creator mode didn't turn on: ${data.error || 'try "Become a creator" from your menu.'}`, 'error', 8000);
-      }
-    } catch {
-      showToast('Your account is ready, but creator mode didn\'t turn on. Use "Become a creator" from your menu.', 'error', 8000);
-    }
-    onSignedIn?.({ ...res, role });
-    return res;
   };
 
   return (
@@ -917,44 +1284,6 @@ export function AuthForm({
 
       <div className={styles.form}>
         {mode === 'login' && !forgot && (
-          <div className={seg.method} role="radiogroup" aria-label="Sign in with">
-            <button type="button" role="radio" aria-checked={loginBy === 'password'} className={loginBy === 'password' ? seg.methodOn : seg.methodBtn} onClick={() => setLoginBy('password')}>
-              <KeyRound size={14} aria-hidden="true" /> Password
-            </button>
-            <button type="button" role="radio" aria-checked={loginBy === 'otp'} className={loginBy === 'otp' ? seg.methodOn : seg.methodBtn} onClick={() => setLoginBy('otp')}>
-              <Smartphone size={14} aria-hidden="true" /> SMS code (OTP)
-            </button>
-          </div>
-        )}
-
-        {mode === 'login' && !forgot && loginBy === 'otp' && (
-          <div className={seg.stack}>
-            <PhoneOtpFlow
-              purpose="login"
-              submitLabel="Sign In"
-              autoFocus={autoFocus}
-              onSubmitCode={loginByCode}
-              onErrorCode={(code) => {
-                if (code === 'PHONE_NOT_REGISTERED') {
-                  showToast('No account uses that number. Create an account instead.', 'info', 6000);
-                  switchMode('register');
-                }
-              }}
-            />
-            <button
-              type="button"
-              className={seg.altLink}
-              onClick={() => {
-                setForgot(true);
-                setLoginError(null);
-              }}
-            >
-              Forgot password or username?
-            </button>
-          </div>
-        )}
-
-        {mode === 'login' && !forgot && loginBy === 'password' && (
           <form className={seg.stack} onSubmit={handleLogin} noValidate>
             <div className={styles.inputGroup}>
               <label className={styles.label} htmlFor="login-identifier">
@@ -984,7 +1313,6 @@ export function AuthForm({
                   onClick={() => {
                     setForgot(true);
                     setLoginError(null);
-                    restartPhone();
                   }}
                 >
                   Forgot password or username?
@@ -1003,6 +1331,10 @@ export function AuthForm({
                 'Sign In'
               )}
             </button>
+            <div className={seg.orRow} aria-hidden="true">
+              <span>or</span>
+            </div>
+            <GoogleButton intent="login" label="Sign in with Google" />
           </form>
         )}
 
@@ -1011,122 +1343,27 @@ export function AuthForm({
             <button type="button" className={seg.back} onClick={() => setForgot(false)}>
               <ArrowLeft size={14} aria-hidden="true" /> Back to sign in
             </button>
-            <AccountRecoveryFlow
-              autoFocus
-              onDone={(res) => onSignedIn?.(res)}
-              onNoAccount={() => {
-                showToast('No account uses that number. Create an account instead.', 'info', 6000);
-                switchMode('register');
-              }}
-            />
+            <div>
+              <p className={seg.stepTitle}>Forgot password or username?</p>
+              <p className={styles.fieldNote}>
+                Confirm it’s you with the Google account you signed up with. We’ll show your username and you can choose a new password.
+              </p>
+            </div>
+            <GoogleButton intent="reset" label="Verify with Google" next="/" />
           </div>
         )}
 
         {signingUp && (
-          <>
-            <div className={styles.inputGroup}>
-              <label className={styles.label} htmlFor="signup-username">
-                Username
-              </label>
-              <div className={styles.inputWithStatus}>
-                <input
-                  id="signup-username"
-                  type="text"
-                  className={`${styles.input} ${usernameStatus.kind === 'available' ? styles.inputOk : usernameStatus.kind === 'unavailable' ? styles.inputBad : ''}`}
-                  placeholder="e.g. otaku_collector"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  maxLength={USERNAME_MAX_LENGTH}
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  aria-describedby="signup-username-status"
-                  aria-invalid={usernameStatus.kind === 'unavailable'}
-                  autoFocus={autoFocus}
-                  disabled={Boolean(verified)}
-                />
-                <span className={styles.statusIcon} aria-hidden="true">
-                  {usernameStatus.kind === 'checking' && <Loader2 size={15} className={styles.spin} />}
-                  {usernameStatus.kind === 'available' && <CheckCircle2 size={16} className={styles.ok} />}
-                  {usernameStatus.kind === 'unavailable' && <XCircle size={16} className={styles.bad} />}
-                </span>
-              </div>
-              <p
-                id="signup-username-status"
-                className={`${styles.fieldNote} ${usernameStatus.kind === 'available' ? styles.ok : usernameStatus.kind === 'unavailable' ? styles.bad : ''}`}
-                aria-live="polite"
-              >
-                {usernameStatus.kind === 'available'
-                  ? 'Username is available.'
-                  : usernameStatus.kind === 'unavailable' || usernameStatus.kind === 'error'
-                  ? usernameStatus.message
-                  : usernameStatus.kind === 'checking'
-                  ? 'Checking…'
-                  : `At least ${USERNAME_MIN_LENGTH} characters: letters, numbers, _ and .`}
-              </p>
-            </div>
-
-            {mode === 'creator' && (
+          <div className={seg.stack}>
+            <EmailSignup key={mode} intent={mode === 'creator' ? 'creator' : 'register'} autoFocus={autoFocus} onDone={(res) => onSignedIn?.(res)} onVerified={() => setEmailVerified(true)} />
+            {!emailVerified && (
               <>
-                <div className={styles.inputGroup}>
-                  <label className={styles.label} htmlFor="creator-channel-name">
-                    Channel name
-                  </label>
-                  <input
-                    id="creator-channel-name"
-                    type="text"
-                    className={styles.input}
-                    placeholder="e.g. Anime Unboxed"
-                    value={channelName}
-                    onChange={(e) => setChannelName(e.target.value)}
-                    maxLength={CHANNEL_NAME_MAX}
-                    disabled={Boolean(verified)}
-                  />
+                <div className={seg.orRow} aria-hidden="true">
+                  <span>or</span>
                 </div>
-                <div className={styles.inputGroup}>
-                  <label className={styles.label} htmlFor="creator-channel-url">
-                    Channel link
-                  </label>
-                  <input
-                    id="creator-channel-url"
-                    type="url"
-                    inputMode="url"
-                    className={styles.input}
-                    placeholder="https://youtube.com/@yourchannel"
-                    value={channelUrl}
-                    onChange={(e) => setChannelUrl(e.target.value)}
-                    maxLength={CHANNEL_URL_MAX}
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    disabled={Boolean(verified)}
-                  />
-                  <p className={`${styles.fieldNote} ${showChannelError ? styles.bad : ''}`} aria-live="polite">
-                    {showChannelError ? channelError : 'YouTube, Instagram, TikTok, X… a full https:// link.'}
-                  </p>
-                </div>
+                <GoogleButton intent={mode === 'creator' ? 'creator' : 'register'} label="Sign up with Google" />
               </>
             )}
-
-            {!verified ? (
-              <PhoneOtpFlow
-                key={`${mode}-${flowKey}`}
-                purpose="register"
-                username={username.trim()}
-                canSend={usernameOk && !channelError}
-                submitLabel="Verify code"
-                onSubmitCode={verifyCode('register')}
-                onErrorCode={onPhoneErrorCode}
-              />
-            ) : (
-              <PasswordPanel
-                phoneLabel={verified.label}
-                username={username.trim()}
-                submitLabel={mode === 'creator' ? 'Join as creator' : 'Create Account'}
-                onSubmit={createAccount}
-                onRestart={restartPhone}
-              />
-            )}
-            {/* Shown under every sign-up step (2026-11-02, owner). */}
             <p className={seg.consent}>
               By creating an account you agree to our{' '}
               <a href="/terms" target="_blank" rel="noopener">
@@ -1136,9 +1373,9 @@ export function AuthForm({
               <a href="/privacy" target="_blank" rel="noopener">
                 Privacy Policy
               </a>
-              . Your mobile number is never shown to anyone.
+              . Your email is never shown to anyone.
             </p>
-          </>
+          </div>
         )}
         {mode === 'login' && (
           <p className={seg.consent}>
