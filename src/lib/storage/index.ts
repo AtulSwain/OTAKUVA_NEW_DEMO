@@ -1,6 +1,7 @@
 import { StorageProvider, UploadOptions, UploadResult } from './types';
 import { LocalStorageProvider } from './localStorageProvider';
 import { R2AuthError, R2StorageProvider } from './r2StorageProvider';
+import { CloudinaryStorageProvider } from './cloudinaryStorageProvider';
 
 let storageInstance: StorageProvider | null = null;
 
@@ -78,7 +79,24 @@ export function getStorageProvider(): StorageProvider {
   if (!storageInstance) {
     const providerType = process.env.STORAGE_PROVIDER || 'local';
 
-    if (providerType === 'r2') {
+    // Cloudinary (2026-11-04, owner): replaces R2. Old R2 files keep working
+    // through the /api/media relay until scripts/migrate_r2_to_cloudinary.ts
+    // has copied them and rewritten their links.
+    // Cloudinary keys present → Cloudinary, even if STORAGE_PROVIDER still says
+    // "r2" (so a deploy switches over without an env-var race). Only an
+    // explicit STORAGE_PROVIDER="local" keeps files on disk.
+    const cloudinaryReady = new CloudinaryStorageProvider().isConfigured();
+    if (providerType === 'cloudinary' || (cloudinaryReady && providerType !== 'local')) {
+      const cloudinary = new CloudinaryStorageProvider();
+      if (cloudinary.isConfigured()) {
+        storageInstance = cloudinary;
+      } else if (process.env.NODE_ENV === 'production') {
+        throw new Error('STORAGE_PROVIDER is "cloudinary" but CLOUDINARY_URL is not set.');
+      } else {
+        console.warn('[Storage] STORAGE_PROVIDER is "cloudinary" but CLOUDINARY_URL is not set. Using local storage (public/uploads) for development.');
+        storageInstance = new LocalStorageProvider();
+      }
+    } else if (providerType === 'r2') {
       const r2 = new R2StorageProvider();
       if (r2.isConfigured()) {
         storageInstance = process.env.NODE_ENV === 'production' ? r2 : new DevR2WithLocalFallback(r2);
@@ -100,4 +118,5 @@ export * from './types';
 export * from './imageValidator';
 export * from './imageProcessor';
 export * from './r2StorageProvider';
+export * from './cloudinaryStorageProvider';
 export * from './localStorageProvider';

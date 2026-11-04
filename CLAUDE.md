@@ -2085,6 +2085,16 @@ gaps against later phases, from the last audit (2026-08-28):
   `SMTP_PASS`, nodemailer) — no domain needed; Resend is the fallback.
   Without email set up, dev shows the code in the form (`devCode`) and
   production refuses (503). Tests in `tests/google-auth.test.ts`.
+- **Cloudinary replaces Cloudflare R2 for uploads (2026-11-04, owner)**:
+  `src/lib/storage/cloudinaryStorageProvider.ts` (signed REST upload, no SDK;
+  public_id `otakuva/{avatars|banners|media}/<random>`; stored link = the
+  `res.cloudinary.com` secure_url; delete only inside the `otakuva/` folder).
+  `STORAGE_PROVIDER=cloudinary` + `CLOUDINARY_URL`. Old R2 files keep working
+  through `/api/media/*` until `scripts/migrate_r2_to_cloudinary.ts --apply`
+  (dry run default) copies them and rewrites every text column that links
+  to them + MediaAsset rows; log in `scripts/import_logs/`. Run it on local
+  AND production before deleting the bucket. Tests:
+  `tests/cloudinary-storage.test.ts`.
 - **Support contact (2026-11-01, owner; moved to /support + /about 2026-11-03)**: "Need a Hand?" in the site footer
   (`src/components/shell/SupportContact.tsx`), right under the brand line
   "Track what you watch…" — stacked on phones, brand left / support right on
