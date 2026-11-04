@@ -10,7 +10,20 @@ import styles from './SupportEmailCard.module.css';
  * mailto: links only — no form, no backend. Moved off the footer onto
  * /support and /about (2026-11-03, owner).
  */
-export function SupportEmailCard({ title = 'Email support' }: { title?: string }) {
+export function SupportEmailCard({
+  title = 'Email support',
+  email = SUPPORT_EMAIL,
+  ctaLabel = 'Contact Support',
+  ctaHref,
+  id = 'support-email-address',
+}: {
+  title?: string;
+  /** Another address (e.g. the business one); defaults to support. */
+  email?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+  id?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -21,11 +34,11 @@ export function SupportEmailCard({ title = 'Email support' }: { title?: string }
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(SUPPORT_EMAIL);
+      await navigator.clipboard.writeText(email);
       setCopied(true);
     } catch {
       // Clipboard blocked (http, old browser): select the address so it can be copied by hand.
-      const el = document.getElementById('support-email-address');
+      const el = document.getElementById(id);
       if (el) {
         const range = document.createRange();
         range.selectNodeContents(el);
@@ -44,8 +57,8 @@ export function SupportEmailCard({ title = 'Email support' }: { title?: string }
       <div className={styles.body}>
         <p className={styles.title}>{title}</p>
         <div className={styles.row}>
-          <a id="support-email-address" href={supportMailto()} className={styles.email}>
-            {SUPPORT_EMAIL}
+          <a id={id} href={email === SUPPORT_EMAIL ? supportMailto() : `mailto:${email}`} className={styles.email}>
+            {email}
           </a>
           <button type="button" className={styles.copy} onClick={copy} aria-label={copied ? 'Email address copied' : 'Copy email address'}>
             {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
@@ -56,8 +69,8 @@ export function SupportEmailCard({ title = 'Email support' }: { title?: string }
           </span>
         </div>
       </div>
-      <a href={supportRequestMailto()} className={styles.cta}>
-        Contact Support
+      <a href={ctaHref ?? supportRequestMailto()} className={styles.cta}>
+        {ctaLabel}
       </a>
     </div>
   );

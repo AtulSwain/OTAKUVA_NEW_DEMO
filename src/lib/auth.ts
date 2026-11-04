@@ -132,6 +132,8 @@ export interface AuthenticatedUser {
   email: string | null;
   role: string;
   phoneVerifiedAt: Date | null;
+  /** Set once Google confirmed the account's email (2026-11-04). */
+  emailVerifiedAt: Date | null;
 }
 
 function extractTokenFromRequest(request: NextRequest): { token: string | null; fromCookie: boolean } {
@@ -251,7 +253,7 @@ export async function getAuthUserFromCookies(): Promise<AuthenticatedUser | null
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, username: true, email: true, role: true, phoneVerifiedAt: true, passwordChangedAt: true },
+      select: { id: true, username: true, email: true, role: true, phoneVerifiedAt: true, emailVerifiedAt: true, passwordChangedAt: true },
     });
     if (!user || !isSessionCurrent(payload, user.passwordChangedAt)) return null;
     const { passwordChangedAt: _pc, ...current } = user;
@@ -287,7 +289,7 @@ export async function getAuthUserFromRequest(request: NextRequest): Promise<Auth
     // without waiting for the token to expire.
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, username: true, email: true, role: true, phoneVerifiedAt: true, passwordChangedAt: true },
+      select: { id: true, username: true, email: true, role: true, phoneVerifiedAt: true, emailVerifiedAt: true, passwordChangedAt: true },
     });
     if (!user || !isSessionCurrent(payload, user.passwordChangedAt)) return null;
     const { passwordChangedAt: _pc, ...current } = user;
@@ -347,10 +349,12 @@ export async function requireVerifiedUser(request: NextRequest): Promise<Authent
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
   // Off while testing (PHONE_VERIFICATION_REQUIRED, src/lib/identity/identityConfig.ts).
-  if (!user.phoneVerifiedAt && isPhoneVerificationRequired()) {
+  // Verified = a Google-confirmed email (2026-11-04), or a phone verified
+  // before the switch. The code stays PHONE_NOT_VERIFIED for client compat.
+  if (!user.emailVerifiedAt && !user.phoneVerifiedAt && isPhoneVerificationRequired()) {
     return NextResponse.json(
       {
-        error: 'Please verify your phone number before posting. It only takes a one-time SMS code.',
+        error: 'Please verify your email with Google before posting. It takes one click.',
         code: 'PHONE_NOT_VERIFIED',
       },
       { status: 403 }

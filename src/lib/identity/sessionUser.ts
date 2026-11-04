@@ -14,6 +14,7 @@ export interface SessionUserSource {
   createdAt: Date;
   phone: string | null;
   phoneVerifiedAt: Date | null;
+  emailVerifiedAt?: Date | null;
 }
 
 /**
@@ -33,7 +34,9 @@ export function toSessionUser(user: SessionUserSource, role: string = user.role)
     bannerUrl: user.bannerUrl ?? null,
     bio: user.bio,
     createdAt: user.createdAt.toISOString(),
-    phoneVerified: user.phoneVerifiedAt !== null,
+    /** "Verified" account: Google-confirmed email (2026-11-04) or an older verified phone. Name kept for client compat. */
+    phoneVerified: user.phoneVerifiedAt !== null || (user.emailVerifiedAt ?? null) !== null,
+    emailVerified: (user.emailVerifiedAt ?? null) !== null,
     /** Whether the site currently requires a verified phone to rate/review/post. */
     phoneVerificationRequired: isPhoneVerificationRequired(),
     phoneMasked: user.phoneVerifiedAt ? maskPhone(user.phone) : null,
@@ -52,4 +55,5 @@ export const SESSION_USER_SELECT = {
   createdAt: true,
   phone: true,
   phoneVerifiedAt: true,
+  emailVerifiedAt: true,
 } as const;

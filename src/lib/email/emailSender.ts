@@ -9,6 +9,7 @@
  * delivered. Every caller only depends on `sendEmail()`.
  */
 
+import nodemailer from 'nodemailer';
 import { logger } from '../logger';
 
 export interface EmailMessage {
@@ -73,6 +74,43 @@ class ResendEmailSender implements EmailSender {
   }
 }
 
+/**
+ * Gmail (or any SMTP server) — 2026-11-04, owner: no domain yet, so mail goes
+ * out from a Gmail account using an App Password (Google Account → Security →
+ * 2-Step Verification → App passwords). Works for any recipient, ~500/day.
+ * Env: SMTP_USER (the Gmail address), SMTP_PASS (16-letter app password),
+ * optional SMTP_HOST/SMTP_PORT (default smtp.gmail.com:465), EMAIL_FROM.
+ */
+class SmtpEmailSender implements EmailSender {
+  private transport;
+  constructor(private user: string, pass: string, private from: string) {
+    const host = process.env.SMTP_HOST?.trim() || 'smtp.gmail.com';
+    const port = Number(process.env.SMTP_PORT || 465);
+    this.transport = nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
+  }
+
+  async send(message: EmailMessage): Promise<void> {
+    await this.transport.sendMail({
+      from: this.from,
+      to: message.to,
+      subject: message.subject,
+      text: message.text,
+      ...(message.html ? { html: message.html } : {}),
+    });
+    logger.info('Email sent', { component: 'email/emailSender', provider: 'smtp', subject: message.subject });
+  }
+}
+
+function smtpSettings(): { user: string; pass: string; from: string } | null {
+  const user = process.env.SMTP_USER?.trim() ?? '';
+  const pass = (process.env.SMTP_PASS ?? '').replace(/\s+/g, '');
+  if (!user || !pass) return null;
+  const from = process.env.EMAIL_FROM?.trim() || '';
+  // Gmail rewrites any other sender address, so default to "OTAKUVA <the gmail>".
+  const sender = from.includes('@') ? from : `${from.replace(/["<>]/g, '') || 'OTAKUVA'} <${user}>`;
+  return { user, pass, from: sender };
+}
+
 export interface EmailConfigCheck {
   ok: boolean;
   /** Human-readable problems; never contains the key itself. */
@@ -107,11 +145,14 @@ let senderConfig = '';
 export function getEmailSender(): EmailSender {
   // Rebuild when the settings change (Next reloads .env in dev), so fixing
   // .env takes effect without a restart.
-  const signature = `${process.env.RESEND_API_KEY ?? ''}|${process.env.EMAIL_FROM ?? ''}`;
+  const signature = `${process.env.RESEND_API_KEY ?? ''}|${process.env.EMAIL_FROM ?? ''}|${process.env.SMTP_USER ?? ''}|${process.env.SMTP_PASS ?? ''}`;
   if (!sender || signature !== senderConfig) {
     senderConfig = signature;
+    const smtp = smtpSettings();
     const check = checkEmailConfig();
-    if (check.ok) {
+    if (smtp) {
+      sender = new SmtpEmailSender(smtp.user, smtp.pass, smtp.from);
+    } else if (check.ok) {
       sender = new ResendEmailSender(process.env.RESEND_API_KEY!.trim(), process.env.EMAIL_FROM!.trim());
     } else {
       if (process.env.RESEND_API_KEY?.trim() || process.env.EMAIL_FROM?.trim()) {
@@ -129,7 +170,7 @@ export function getEmailSender(): EmailSender {
 
 /** True when real delivery is configured correctly. */
 export function isEmailDeliveryConfigured(): boolean {
-  return checkEmailConfig().ok;
+  return smtpSettings() !== null || checkEmailConfig().ok;
 }
 
 export async function sendEmail(message: EmailMessage): Promise<void> {

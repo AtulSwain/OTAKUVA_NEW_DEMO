@@ -8,7 +8,7 @@ import { Download, KeyRound, LogOut, ShieldCheck, ShieldAlert, Trash2, UserRound
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { UserAvatar } from '../../components/ui/UserAvatar';
-import { PasswordResetFlow } from '../../components/auth/AuthForm';
+import { startGoogle } from '../../components/auth/AuthForm';
 import styles from './settings.module.css';
 
 /**
@@ -87,16 +87,16 @@ export default function SettingsPage() {
 
         <dl className={styles.facts}>
           <div className={styles.factRow}>
-            <dt>Phone</dt>
+            <dt>Email</dt>
             <dd>
-              {user.phoneMasked ? (
+              {user.emailVerified ? (
                 <span className={styles.verified}>
-                  <ShieldCheck size={15} aria-hidden="true" /> {user.phoneMasked} · verified
+                  <ShieldCheck size={15} aria-hidden="true" /> {user.email} · verified with Google
                 </span>
               ) : (
-                <span className={styles.unverified}>
-                  <ShieldAlert size={15} aria-hidden="true" /> No verified phone
-                </span>
+                <button type="button" className={styles.unverified} onClick={() => startGoogle('link', '/settings')} style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit' }}>
+                  <ShieldAlert size={15} aria-hidden="true" /> Not verified — verify with Google
+                </button>
               )}
             </dd>
           </div>
@@ -112,8 +112,8 @@ export default function SettingsPage() {
         </Link>
       </section>
 
-      {/* Password (2026-11-02): same mobile → SMS code → new password flow as "Forgot password". */}
-      <ChangePassword hasPhone={Boolean(user.phoneMasked)} phoneMasked={user.phoneMasked ?? null} />
+      {/* Password (2026-11-04): Google → new password. */}
+      <ChangePassword hasEmail={Boolean(user.emailVerified)} />
 
       {/* Data */}
       <section className={styles.card} aria-labelledby="settings-data">
@@ -145,42 +145,24 @@ export default function SettingsPage() {
   );
 }
 
-function ChangePassword({ hasPhone, phoneMasked }: { hasPhone: boolean; phoneMasked: string | null }) {
-  const [open, setOpen] = useState(false);
-  const { refreshUser } = useAuth();
+function ChangePassword({ hasEmail }: { hasEmail: boolean }) {
+  // 2026-11-04: Google confirms it's you, then you type the new password twice
+  // on /auth/google. Other devices are signed out.
   return (
     <section className={styles.card} aria-labelledby="settings-password">
       <h2 id="settings-password" className={styles.cardTitle}>Password</h2>
-      {!open ? (
-        <button type="button" className={styles.linkRow} onClick={() => setOpen(true)} disabled={!hasPhone}>
-          <KeyRound size={18} aria-hidden="true" />
-          <span>
-            <strong>Change password</strong>
-            <span className={styles.muted}>
-              {hasPhone
-                ? `We’ll text a code to ${phoneMasked}, then you type your new password twice. Other devices are signed out.`
-                : 'Add a verified mobile number to your account first.'}
-            </span>
+      <button type="button" className={styles.linkRow} onClick={() => startGoogle(hasEmail ? 'reset' : 'link', '/settings')}>
+        <KeyRound size={18} aria-hidden="true" />
+        <span>
+          <strong>Change password</strong>
+          <span className={styles.muted}>
+            {hasEmail
+              ? 'Confirm it’s you with Google, then type your new password twice. Other devices are signed out.'
+              : 'Verify your email with Google first, then come back here.'}
           </span>
-          <ChevronRight size={18} aria-hidden="true" className={styles.chevron} />
-        </button>
-      ) : (
-        <div className={styles.passwordFlow}>
-          <PasswordResetFlow
-            autoFocus
-            title="Change your password"
-            note={`Enter the mobile number on your account (${phoneMasked ?? 'your number'}). We’ll text you a code.`}
-            submitLabel="Save new password"
-            onDone={async () => {
-              await refreshUser();
-              setOpen(false);
-            }}
-          />
-          <button type="button" className={styles.cancelLink} onClick={() => setOpen(false)}>
-            Cancel
-          </button>
-        </div>
-      )}
+        </span>
+        <ChevronRight size={18} aria-hidden="true" className={styles.chevron} />
+      </button>
     </section>
   );
 }

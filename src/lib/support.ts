@@ -13,5 +13,18 @@ export const supportMailto = (): string => `mailto:${SUPPORT_EMAIL}`;
 /** Pre-addressed email with the support subject filled in. */
 export const supportRequestMailto = (): string => `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(SUPPORT_SUBJECT)}`;
 
-/** "Advertise with us" in the footer (2026-11-03): no ads page yet, so it's an email. */
-export const advertiseMailto = (): string => `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Advertising with OTAKUVA')}`;
+/**
+ * Business contact (2026-11-04, owner): ONE address for partnerships,
+ * advertising, press and media, shown in "Contact us" on /support. Set
+ * NEXT_PUBLIC_BUSINESS_EMAIL (the owner's OTAKUVA Gmail); empty = the section
+ * stays hidden rather than show an address that can't receive mail.
+ */
+export const BUSINESS_EMAIL = process.env.NEXT_PUBLIC_BUSINESS_EMAIL?.trim() || '';
+export const BUSINESS_SUBJECT = 'OTAKUVA – Business enquiry';
+
+export const businessMailto = (subject = BUSINESS_SUBJECT): string =>
+  `mailto:${BUSINESS_EMAIL}?subject=${encodeURIComponent(subject)}`;
+
+/** "Advertise with us" in the footer: the business address when set, else support. */
+export const advertiseMailto = (): string =>
+  `mailto:${BUSINESS_EMAIL || SUPPORT_EMAIL}?subject=${encodeURIComponent('Advertising with OTAKUVA')}`;

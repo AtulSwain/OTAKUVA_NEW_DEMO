@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Smartphone, X } from 'lucide-react';
+import { MailCheck, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
-import { PhoneOtpFlow } from './PhoneOtpFlow';
+import { GoogleButton } from './AuthForm';
 import styles from './VerifyPhonePrompt.module.css';
 
 const EVENT = 'otakuva:verify-phone-required';
@@ -26,8 +25,7 @@ const REASON_TEXT: Record<string, string> = {
 
 /** Mounted once (AppShell). Links and verifies a phone on the signed-in account. */
 export function VerifyPhonePrompt() {
-  const { user, setSessionUser } = useAuth();
-  const { showToast } = useToast();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('rate');
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -57,22 +55,6 @@ export function VerifyPhonePrompt() {
 
   if (!open || !user) return null;
 
-  const verify = async (phone: string, country: string, code: string) => {
-    try {
-      const res = await fetch('/api/auth/phone/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, country, code }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.user) return { success: false, error: data.error || 'Could not verify that code.', code: data.code };
-      setSessionUser(data.user);
-      showToast(data.message || 'Phone verified.', 'success');
-      return { success: true };
-    } catch {
-      return { success: false, error: 'Could not reach the server. Check your connection and try again.' };
-    }
-  };
 
   return (
     <div className={styles.overlay} onClick={close}>
@@ -91,19 +73,19 @@ export function VerifyPhonePrompt() {
 
         <div className={styles.iconWrap} aria-hidden="true">
           <span className={styles.ring} />
-          <Smartphone size={30} className={styles.icon} />
+          <MailCheck size={30} className={styles.icon} />
         </div>
 
         <h2 id="verify-phone-title" className={styles.title}>
-          Verify your phone first
+          Verify your email first
         </h2>
         <p className={styles.text}>
-          To {REASON_TEXT[reason] ?? REASON_TEXT.rate}, confirm a mobile number with a one-time SMS code. Each number can
-          back only one account, which keeps ratings fair.
+          To {REASON_TEXT[reason] ?? REASON_TEXT.rate}, confirm your email with Google. Each email can back only one
+          account, which keeps ratings fair.
         </p>
 
         <div className={styles.flowWrap}>
-          <PhoneOtpFlow purpose="link" submitLabel="Verify phone" autoFocus onSubmitCode={verify} />
+          <GoogleButton intent="link" label="Verify with Google" />
         </div>
 
         <div className={styles.actions}>
