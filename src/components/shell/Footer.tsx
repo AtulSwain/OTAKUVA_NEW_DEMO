@@ -4,7 +4,8 @@ import { Heart } from 'lucide-react';
 import { advertiseMailto } from '../../lib/support';
 import styles from './Footer.module.css';
 
-// Footer (2026-11-03, owner: "a simple line"): brand, "Made with ♥ from
+// Footer (2026-11-03, owner: "a simple line"; 2026-11-05: just the name, no
+// tagline, + Support link): brand, "Made with ♥ from
 // India", one line of links, copyright. No link columns, no support box.
 // Data credits stay in the brand note — AniList's terms ask for the credit.
 const LINKS: { href: string; label: string; external?: boolean }[] = [
@@ -12,6 +13,7 @@ const LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: advertiseMailto(), label: 'Advertise with us', external: true },
   { href: '/privacy', label: 'Privacy Policy' },
   { href: '/terms', label: 'Terms & Conditions' },
+  { href: '/support', label: 'Support' },
   { href: '/report-content', label: 'Report' },
   { href: '/support#contact', label: 'Contact Us' },
 ];
@@ -26,7 +28,6 @@ export const Footer: React.FC = () => {
             <img src="/brand/otakuva-mark.png" alt="" width={40} height={31} className={styles.brandMark} />
             OTAKUVA
           </span>
-          <p className={styles.brandDesc}>Track what you watch, rate what you love, and find what&apos;s next.</p>
           <p className={styles.brandNote}>
             Not a streaming platform. Anime data from AniList and MyAnimeList (via Jikan) — see <Link href="/credits">data credits</Link>.
           </p>

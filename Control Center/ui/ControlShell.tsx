@@ -26,6 +26,7 @@ import {
   Activity,
   MessagesSquare,
   Inbox,
+  Flag,
   Clapperboard,
   Radio,
   FileText,
@@ -43,6 +44,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     items: [
       { href: '/control', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/control/desk', label: 'Main desk', icon: Inbox },
+      { href: '/control/inbox', label: 'Reports inbox', icon: Flag },
     ],
   },
   {

@@ -11,14 +11,15 @@ export const metadata: Metadata = {
 
 /**
  * Terms & Conditions (2026-11-03, owner — replaces the placeholder Terms of
- * Service). Plain language, matching what the site actually does: one account
- * per mobile number (src/app/api/auth/**), user content + moderation
+ * Service; 2026-11-05: phone/SMS → email verified by Google or an emailed
+ * code). Plain language, matching what the site actually does: one account
+ * per verified email (src/app/api/auth/**), user content + moderation
  * (reports, ModerationAction), creator mode, third-party anime data,
  * account deletion (DELETE /api/account; community owners transfer first).
  * Age 13+ matches the Privacy Policy. Governing law = India is the owner's
  * choice to confirm. Worth a lawyer's read before a wide public launch.
  */
-const UPDATED = '3 November 2026';
+const UPDATED = '5 November 2026';
 
 interface Clause {
   heading: string;
@@ -47,20 +48,21 @@ const CLAUSES: Clause[] = [
     heading: '3. Your account',
     bullets: [
       <>
-        <strong>One person, one account.</strong> Each account is tied to one mobile number, and each number can have only one account. Don’t create
-        accounts for other people or extra accounts to boost ratings or votes.
+        <strong>One person, one account.</strong> Each account is tied to one email address, verified either by signing in with Google or with a
+        one-time code we email you. Each email address can have only one account. Don’t create accounts for other people or extra accounts to
+        boost ratings or votes.
       </>,
       <>
-        <strong>Keep it secure.</strong> Keep your password and SMS codes to yourself — OTAKUVA will never ask for them. You are responsible for what
-        happens on your account. If you think someone else has got in, reset your password straight away from{' '}
-        <Link href="/forgot-password">Forgot password or username</Link> and tell us.
+        <strong>Keep it secure.</strong> Keep your password and sign-in codes to yourself — OTAKUVA will never ask for them, and we never see your
+        Google password. You are responsible for what happens on your account. If you think someone else has got in, confirm it’s you with Google
+        on <Link href="/forgot-password">Forgot password or username</Link>, choose a new password straight away, and tell us.
       </>,
       <>
         <strong>Your username.</strong> Pick a name that doesn’t impersonate another person, brand or OTAKUVA staff, and isn’t offensive. We may change
         or reclaim a username that breaks this rule.
       </>,
       <>
-        <strong>Accurate details.</strong> Use a mobile number that is yours. Creators must only link channels they own or run.
+        <strong>Accurate details.</strong> Use an email address that is yours. Creators must only link channels they own or run.
       </>,
     ],
   },

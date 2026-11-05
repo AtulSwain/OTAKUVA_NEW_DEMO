@@ -3,12 +3,15 @@ import { prisma } from '../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../lib/auth';
 import { RateLimiter } from '../../../lib/security/rateLimiter';
 import { canUserViewCommunityContent } from '../../../lib/engine/community/communityEngine';
+import { REPORT_REASONS } from '../../../lib/reports/reportCategories';
+import { resolveLink } from '../../../lib/reports/resolveLink';
+import { logger } from '../../../lib/logger';
 
 export const dynamic = 'force-dynamic';
 
 const TARGET_TYPES = new Set(['DISCUSSION', 'COMMENT', 'MESSAGE', 'USER', 'COMMUNITY', 'ARTICLE', 'ARTICLE_COMMENT']);
-// Categories offered in the UI, plus the older values existing reports use.
-const REASONS = new Set(['SPAM', 'HARASSMENT', 'OFFENSIVE', 'SPOILER', 'MISINFORMATION', 'OTHER', 'HATE', 'SPOILER_MISUSE', 'PIRACY']);
+// Public catalog pages a pasted link can point at (2026-11-05) — always visible.
+const PUBLIC_LINK_TYPES = new Set(['ANIME', 'PERSON', 'CHARACTER', 'STUDIO', 'NEWS', 'PAGE']);
 
 /**
  * Only something that exists and that the reporter can actually see can be
@@ -65,19 +68,32 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const targetType = typeof body.targetType === 'string' ? body.targetType.toUpperCase() : '';
+    let targetType = typeof body.targetType === 'string' ? body.targetType.toUpperCase() : '';
     const reason = typeof body.reason === 'string' ? body.reason.toUpperCase() : '';
-    const targetId = typeof body.targetId === 'string' ? body.targetId : '';
-    const description = typeof body.description === 'string' ? body.description.trim().slice(0, 1000) : '';
+    let targetId = typeof body.targetId === 'string' ? body.targetId : '';
+    let description = typeof body.description === 'string' ? body.description.trim().slice(0, 1000) : '';
 
-    if (!TARGET_TYPES.has(targetType) || !targetId) {
-      return NextResponse.json({ error: 'A valid report target is required' }, { status: 400 });
-    }
-    if (!REASONS.has(reason)) {
+    if (!REPORT_REASONS.has(reason)) {
       return NextResponse.json({ error: 'Choose a report reason' }, { status: 400 });
     }
-    if (!(await targetVisibleTo(targetType, targetId, authUser.id))) {
-      return NextResponse.json({ error: 'That content could not be found' }, { status: 404 });
+
+    // From the Report page (2026-11-05): a pasted link instead of an id.
+    if (!targetType && !targetId && body.link !== undefined) {
+      const target = await resolveLink(body.link);
+      if (!target) return NextResponse.json({ error: 'Paste a link to the page you’re reporting.', code: 'INVALID_LINK' }, { status: 400 });
+      targetType = target.type;
+      targetId = target.id;
+      if (target.type !== 'PAGE') description = `[${target.path}] ${description}`.trim().slice(0, 1000);
+      if (!PUBLIC_LINK_TYPES.has(targetType) && !(await targetVisibleTo(targetType, targetId, authUser.id))) {
+        return NextResponse.json({ error: 'That content could not be found' }, { status: 404 });
+      }
+    } else {
+      if (!TARGET_TYPES.has(targetType) || !targetId) {
+        return NextResponse.json({ error: 'A valid report target is required' }, { status: 400 });
+      }
+      if (!(await targetVisibleTo(targetType, targetId, authUser.id))) {
+        return NextResponse.json({ error: 'That content could not be found' }, { status: 404 });
+      }
     }
 
     // One open report per person per item; repeat clicks don't stack.
@@ -101,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, reportId: report.id }, { status: 201 });
   } catch (error: any) {
-    console.error('Report error:', error);
+    logger.error('Report failed', { error: error as Error, component: 'api/reports' });
     return NextResponse.json({ error: 'Failed to submit report' }, { status: 500 });
   }
 }
