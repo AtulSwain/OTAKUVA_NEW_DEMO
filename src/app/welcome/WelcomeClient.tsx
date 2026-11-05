@@ -19,8 +19,15 @@ const HEADINGS: Record<AuthMode, { title: string; lede: string }> = {
  * with the site's own sign-in form — Sign In, Create Account, or Creator
  * (normal sign-up + the existing creator upgrade). Signing in → homepage.
  */
-export function WelcomeClient({ posters }: { posters: LandingPoster[] }) {
-  const [mode, setMode] = useState<AuthMode>('login');
+export function WelcomeClient({
+  posters,
+  gmailSignup = null,
+}: {
+  posters: LandingPoster[];
+  /** Back from "Continue with Gmail": Create Account opens on the code box. */
+  gmailSignup?: { mode: 'register' | 'creator'; devCode: string | null } | null;
+}) {
+  const [mode, setMode] = useState<AuthMode>(gmailSignup?.mode ?? 'login');
   const [leaving, setLeaving] = useState(false);
 
   const goHome = () => {
@@ -47,7 +54,7 @@ export function WelcomeClient({ posters }: { posters: LandingPoster[] }) {
       <p className={styles.lede}>{head.lede}</p>
 
       <div className={styles.form}>
-        <AuthForm mode={mode} onModeChange={setMode} onSignedIn={goHome} modes={['login', 'register', 'creator']} segmented />
+        <AuthForm mode={mode} onModeChange={setMode} onSignedIn={goHome} modes={['login', 'register', 'creator']} segmented gmailSignup={gmailSignup} />
       </div>
 
       <button type="button" className={styles.guest} onClick={browseAsGuest}>

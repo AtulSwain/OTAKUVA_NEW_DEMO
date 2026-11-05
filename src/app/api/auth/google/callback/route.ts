@@ -21,8 +21,8 @@ export const dynamic = 'force-dynamic';
  *
  *   login / register / creator
  *     email already on an account → signed in (email marked verified)
- *     new email → 6-digit code emailed to it → /auth/google?step=code →
- *                 (code ok) choose username + password
+ *     new email → 6-digit code emailed to it → /welcome Create Account tab
+ *                 (code box) → (code ok) choose username + password
  *   reset → the account with this email → pass → /auth/google (new password)
  *   link  → the signed-in account gets this verified email
  */
@@ -110,7 +110,9 @@ export async function GET(request: NextRequest) {
     const issued = await issueSignupCode(profile.email, signupIntent);
     if (!issued.ok) return fail(issued.code === 'EMAIL_IN_USE' ? 'GOOGLE_FAILED' : issued.code);
     const dev = issued.devCode && process.env.NODE_ENV !== 'production' ? `&dev=${issued.devCode}` : '';
-    const res = NextResponse.redirect(to(`/auth/google?step=code&next=${encodeURIComponent(next)}${dev}`));
+    // Back to the Create Account page itself (owner, 2026-11-05), which opens
+    // on the code box for this Gmail.
+    const res = NextResponse.redirect(to(`/welcome?signup=gmail&mode=${signupIntent}${dev}`));
     res.cookies.delete(GOOGLE_STATE_COOKIE);
     res.cookies.delete(GOOGLE_PASS_COOKIE);
     res.cookies.set(EMAIL_CODE_COOKIE, issued.ticket, emailCodeCookieOptions());
