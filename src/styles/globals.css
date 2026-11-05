@@ -11,6 +11,13 @@
 
 html {
   scroll-behavior: smooth;
+  /* No scroll anchoring: pages stream in section by section, and anchoring
+     made the view chase that content down the page (ScrollReset.tsx). */
+  overflow-anchor: none;
+}
+
+body {
+  overflow-anchor: none;
 }
 
 html,

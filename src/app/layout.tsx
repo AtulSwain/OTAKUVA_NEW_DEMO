@@ -4,6 +4,8 @@ import '../styles/globals.css';
 import { AppShell } from '../components/shell/AppShell';
 import { inter } from './fonts';
 import { THEME_INIT_SCRIPT } from '../lib/theme/themes';
+import { ScrollReset } from '../components/shell/ScrollReset';
+import { SCROLL_INIT_SCRIPT } from '../lib/scroll/scrollInit';
 import { DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL } from '../lib/seo/site';
 
 const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined;
@@ -56,8 +58,11 @@ export default function RootLayout({
       <head>
         {/* Applies a saved colour theme before first paint (fixed list only). */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {/* Pages open at the top: no restored scroll position on refresh (ScrollReset.tsx). */}
+        <script dangerouslySetInnerHTML={{ __html: SCROLL_INIT_SCRIPT }} />
       </head>
       <body className={inter.className}>
+        <ScrollReset />
         <AppShell>{children}</AppShell>
         {/* Vercel Web Analytics: page views only, no cookies. Sends nothing outside Vercel deployments. */}
         <Analytics />
