@@ -17,6 +17,8 @@ import { GET as googleStartGET } from '../src/app/api/auth/google/route';
 import { POST as sendCodePOST } from '../src/app/api/auth/email/send-code/route';
 import { POST as verifyCodePOST } from '../src/app/api/auth/email/verify-code/route';
 import { EMAIL_CODE_COOKIE } from '../src/lib/identity/emailCode';
+import { GET as emailPendingGET } from '../src/app/api/auth/email/pending/route';
+import { issueSignupCode } from '../src/lib/identity/signupCode';
 
 // No real email in tests: the dev fallback returns the code (devCode).
 delete process.env.SMTP_USER;
@@ -151,5 +153,22 @@ describe('Google sign-in', () => {
     assert.equal(bad.status, 400);
     const none = await verifyCodePOST(req('POST', '/api/auth/email/verify-code', { body: { code: '123456' } }));
     assert.equal(none.status, 400);
+  });
+
+  test('Google sign-up step: a code is issued for the Google email and the page can see which address', async () => {
+    const email = freshEmail();
+    const issued = await issueSignupCode(email, 'register');
+    assert.equal(issued.ok, true);
+    if (!issued.ok) return;
+    assert.match(issued.devCode ?? '', /^\d{6}$/);
+    const cookie = `${EMAIL_CODE_COOKIE}=${issued.ticket}`;
+    const pending = await (await emailPendingGET(req('GET', '/api/auth/email/pending', { cookie }))).json();
+    assert.deepEqual(pending.pending, { email, intent: 'register' });
+    const none = await (await emailPendingGET(req('GET', '/api/auth/email/pending'))).json();
+    assert.equal(none.pending, null);
+    // The code still has to be typed before a username/password can be chosen.
+    const ok = await verifyCodePOST(req('POST', '/api/auth/email/verify-code', { cookie, body: { code: issued.devCode } }));
+    assert.equal(ok.status, 200);
+    assert.ok(ok.cookies.get(GOOGLE_PASS_COOKIE)?.value);
   });
 });
