@@ -12,16 +12,21 @@ export const metadata: Metadata = {
 /**
  * Privacy Policy (2026-11-02). Plain language, and only what the site
  * actually does today — every statement here maps to real code:
- *   account + phone  → src/app/api/auth/**, src/lib/identity/**
- *   SMS codes        → Twilio Verify (src/lib/identity/otpService.ts)
- *   cookies          → anilog_token (30 d), otakuva_guest (30 d)
+ *   account + email  → src/app/api/auth/**, src/lib/identity/**
+ *   Google sign-in   → src/lib/identity/googleAuth.ts (email + name only)
+ *   emailed codes    → src/lib/identity/emailCode.ts, sent via Gmail
+ *                      (src/lib/email/emailSender.ts, authEmails.ts)
+ *   uploads          → Cloudinary (src/lib/storage/cloudinaryStorageProvider.ts)
+ *   cookies          → anilog_token (30 d), otakuva_guest (30 d), sign-in
+ *                      helpers otakuva_gstate / otakuva_ecode (10 min),
+ *                      otakuva_gpass (15 min)
  *   analytics        → Vercel Web Analytics (cookieless page views)
  *   page-view counts → PageViewDaily (counts only, no user or IP)
  *   export / delete  → GET /api/account/export, DELETE /api/account
  * If any of these change, change this page in the same commit.
  * It still deserves a lawyer's read before a wide public launch.
  */
-const UPDATED = '2 November 2026';
+const UPDATED = '5 November 2026';
 
 interface Clause {
   heading: string;
@@ -45,8 +50,17 @@ const CLAUSES: Clause[] = [
         encrypted fingerprint of it (a bcrypt hash) that can’t be turned back into the password.
       </>,
       <>
-        <strong>Your mobile number</strong> — used to prove an account belongs to a real person (one account per number), to send sign-up and password-reset
-        codes, and to confirm sensitive actions such as deleting your account. It is never shown on your profile or to other members.
+        <strong>Your email address</strong> — verified when you sign up, either by signing in with Google or with a one-time code we email you. We use it
+        to keep one account per person, to send your sign-up code and a welcome email, and for account messages. It is never shown on your profile or
+        to other members.
+      </>,
+      <>
+        <strong>From Google, if you use “Continue with Google”</strong> — your email address, your name and the fact that Google has verified the
+        email. We never see or receive your Google password, and we don’t get access to your Gmail, contacts or files.
+      </>,
+      <>
+        <strong>Older accounts</strong> — if you signed up before 5 November 2026 with a mobile number, that number stays stored on your account only to
+        identify it. It is never shown to anyone and is no longer used to sign in.
       </>,
       <>
         <strong>What you add</strong> — your library and watch progress, episode ratings, reviews, replies, comments, discussions, articles, lists and
@@ -66,7 +80,7 @@ const CLAUSES: Clause[] = [
     heading: '3. How we use it',
     bullets: [
       'To run your account and the features you use: tracking, ratings, reviews, lists, communities, notifications and recommendations.',
-      'To keep OTAKUVA fair and safe: one account per mobile number, stopping spam and fake ratings, and handling reports.',
+      'To keep OTAKUVA fair and safe: one account per email address, stopping spam and fake ratings, and handling reports and corrections.',
       'To fix problems and understand which pages are used, so we can improve the site.',
     ],
     after: <p className={styles.sectionBody}>We do not sell your data, we do not show advertising, and we do not use your data for advertising.</p>,
@@ -74,7 +88,7 @@ const CLAUSES: Clause[] = [
   {
     heading: '4. What other people can see',
     paragraphs: [
-      'Your username, display name, avatar, banner, bio, level, and anything you publish (reviews, public lists and collections, articles, discussions, comments, posts in communities you can see) are public. Your library, favourites, episode-by-episode ratings, hype votes and private lists are visible only to you. Your mobile number, password and IP address are never shown to anyone.',
+      'Your username, display name, avatar, banner, bio, level, and anything you publish (reviews, public lists and collections, articles, discussions, comments, posts in communities you can see) are public. Your library, favourites, episode-by-episode ratings, hype votes and private lists are visible only to you. Your email address, password and IP address are never shown to anyone.',
     ],
   },
   {
@@ -83,9 +97,9 @@ const CLAUSES: Clause[] = [
     bullets: [
       <><strong>Vercel</strong> — hosts the website; also counts page views without cookies (Vercel Web Analytics).</>,
       <><strong>Neon</strong> — our database (stored in Singapore).</>,
-      <><strong>Twilio</strong> — sends the SMS codes; receives your mobile number.</>,
-      <><strong>Cloudflare R2</strong> — stores images you upload.</>,
-      <><strong>Sentry</strong> (when error monitoring is switched on) — receives error reports with your account id only, never your name, number or password.</>,
+      <><strong>Google</strong> — “Continue with Google” sign-in, and Gmail, which delivers our emails (sign-up codes, welcome email); receives your email address and the email we send you.</>,
+      <><strong>Cloudinary</strong> — stores and serves images you upload (avatar, banner, covers).</>,
+      <><strong>Sentry</strong> (when error monitoring is switched on) — receives error reports with your account id only, never your name, email or password.</>,
     ],
     after: (
       <p className={styles.sectionBody}>
@@ -99,6 +113,7 @@ const CLAUSES: Clause[] = [
     bullets: [
       <><strong>Sign-in cookie</strong> (<code>anilog_token</code>) — keeps you signed in for up to 30 days. Not used for tracking.</>,
       <><strong>Guest cookie</strong> (<code>otakuva_guest</code>) — remembers that you chose “Browse without signing in”, for 30 days.</>,
+      <><strong>Sign-in helper cookies</strong> (<code>otakuva_gstate</code>, <code>otakuva_ecode</code>, <code>otakuva_gpass</code>) — used only while you sign up or sign in with Google or an emailed code, and expire within 15 minutes.</>,
       'Your browser also keeps small settings on this device only, like your colour theme and recent searches.',
     ],
     after: <p className={styles.sectionBody}>We don’t use advertising or cross-site tracking cookies.</p>,
@@ -106,7 +121,7 @@ const CLAUSES: Clause[] = [
   {
     heading: '7. Keeping your account safe',
     paragraphs: [
-      'Passwords are stored only as encrypted fingerprints, connections use HTTPS, sign-in and SMS codes are rate-limited, and changing or resetting your password signs you out on every other device. If you think someone else got into your account, use “Forgot / change password” right away and contact us.',
+      'Passwords are stored only as encrypted fingerprints, connections use HTTPS, sign-in attempts and emailed codes are rate-limited (codes expire after 10 minutes), and changing or resetting your password signs you out on every other device. If you think someone else got into your account, use “Forgot / change password” right away and contact us.',
     ],
   },
   {

@@ -2095,6 +2095,26 @@ gaps against later phases, from the last audit (2026-08-28):
   to them + MediaAsset rows; log in `scripts/import_logs/`. Run it on local
   AND production before deleting the bucket. Tests:
   `tests/cloudinary-storage.test.ts`.
+- **Report page + Reports inbox + legal update (2026-11-05, owner)**:
+  `/report-content` opens on every category as tiles
+  (`src/lib/reports/reportCategories.ts`: Wrong information, Misinformation,
+  Spam, Harassment, Hate, Sexual/violent, Unmarked spoilers, Piracy,
+  Impersonation, Copyright, Something isn't working, Something else), shown
+  to signed-out visitors too (sign-in only to send). Then a pasted link
+  (`src/lib/reports/resolveLink.ts` → ANIME/PERSON/CHARACTER/STUDIO/NEWS/USER/
+  COMMUNITY/ARTICLE/DISCUSSION, else PAGE with the path; private-community
+  threads still 404 for outsiders) or the item a Report button sent.
+  Wrong information → `POST /api/corrections` → PENDING
+  DataCorrectionRequest (never edits data). Others → `POST /api/reports
+  { link, reason }` (new reasons IMPERSONATION/COPYRIGHT/BROKEN; old
+  `{ targetType, targetId }` form unchanged). **Control Center → Reports
+  inbox** (`/control/inbox`, `Control Center/lib/inbox.ts`) lists both with
+  links and close/reopen buttons — before this nothing listed reports.
+  Terms + Privacy now describe email verified by Google or an emailed code
+  (no SMS/phone), Google + Gmail + Cloudinary as processors (Twilio and R2
+  removed), sign-in helper cookies; older phone accounts noted. Footer: no
+  tagline; links About Us · Advertise · Privacy · Terms · Support · Report ·
+  Contact Us. Tests: `tests/report-categories.test.ts`.
 - **Support contact (2026-11-01, owner; moved to /support + /about 2026-11-03)**: "Need a Hand?" in the site footer
   (`src/components/shell/SupportContact.tsx`), right under the brand line
   "Track what you watch…" — stacked on phones, brand left / support right on
