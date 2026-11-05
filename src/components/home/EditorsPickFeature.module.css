@@ -1,5 +1,8 @@
 .section {
-  padding: var(--section-gap, 48px) 0 0;
+  /* No own top space (2026-11-05, owner: gap after "Browse by Genre" was
+     double): the homepage column already spaces sections with
+     --page-section-gap. */
+  padding: 0;
 }
 
 .featureCard {
