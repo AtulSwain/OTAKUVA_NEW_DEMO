@@ -681,6 +681,40 @@ export function EmailSignup({
 }
 
 /**
+ * Back from "Continue with Gmail" (2026-11-05, owner): the Create Account tab
+ * opens on the code box for the Gmail Google returned. If the code cookie is
+ * gone (expired / another browser), it falls back to the normal email form.
+ */
+function GmailPendingSignup({
+  intent,
+  devCode,
+  onDone,
+  onVerified,
+}: {
+  intent: 'register' | 'creator';
+  devCode?: string | null;
+  onDone: (res: AuthResult) => void;
+  onVerified?: () => void;
+}) {
+  const [pending, setPending] = useState<{ email: string; intent: 'register' | 'creator' } | null | undefined>(undefined);
+  useEffect(() => {
+    fetch('/api/auth/email/pending', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => setPending(d?.pending ?? null))
+      .catch(() => setPending(null));
+  }, []);
+  if (pending === undefined) {
+    return (
+      <p className={styles.fieldNote}>
+        <Loader2 size={14} className={styles.spin} /> Loading…
+      </p>
+    );
+  }
+  if (!pending) return <EmailSignup intent={intent} onDone={onDone} onVerified={onVerified} />;
+  return <EmailSignup intent={pending.intent} autoFocus fromGoogle={{ email: pending.email, devCode }} onDone={onDone} onVerified={onVerified} />;
+}
+
+/**
  * Forgot / change password (2026-11-02, owner): mobile number → SMS code →
  * new password typed twice (strength meter: Very weak / Moderate / Strong).
  * Used from the sign-in form and from Settings. Saving signs this device
@@ -1231,6 +1265,7 @@ export function AuthForm({
   footer,
   modes = ['login', 'register'],
   segmented = false,
+  gmailSignup = null,
 }: {
   mode: AuthMode;
   onModeChange: (mode: AuthMode) => void;
@@ -1243,6 +1278,8 @@ export function AuthForm({
   modes?: AuthMode[];
   /** Pill tabs with a sliding highlight (landing page). */
   segmented?: boolean;
+  /** Came back from "Continue with Gmail": open on the code box (dev: the code, when email isn't set up). */
+  gmailSignup?: { devCode?: string | null } | null;
 }) {
   const { loginWithPassword } = useAuth();
   const { showToast } = useToast();
@@ -1253,12 +1290,15 @@ export function AuthForm({
   const [submitting, setSubmitting] = useState(false);
   const [forgot, setForgot] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
+  // Switching tabs leaves the Gmail code step (it stays valid; the form can be reopened from Gmail).
+  const [gmailDismissed, setGmailDismissed] = useState(false);
 
   const signingUp = mode === 'register' || mode === 'creator';
 
   const switchMode = (next: AuthMode) => {
     setForgot(false);
     setEmailVerified(false);
+    setGmailDismissed(true);
     setLoginError(null);
     onModeChange(next);
   };
@@ -1377,13 +1417,27 @@ export function AuthForm({
 
         {signingUp && (
           <div className={seg.stack}>
-            <EmailSignup key={mode} intent={mode === 'creator' ? 'creator' : 'register'} autoFocus={autoFocus} onDone={(res) => onSignedIn?.(res)} onVerified={() => setEmailVerified(true)} />
-            {!emailVerified && (
+            {gmailSignup && !gmailDismissed ? (
+              <GmailPendingSignup
+                key={`gmail-${mode}`}
+                intent={mode === 'creator' ? 'creator' : 'register'}
+                devCode={gmailSignup.devCode}
+                onDone={(res) => onSignedIn?.(res)}
+                onVerified={() => setEmailVerified(true)}
+              />
+            ) : (
               <>
-                <div className={seg.orRow} aria-hidden="true">
-                  <span>or</span>
-                </div>
-                <GoogleButton intent={mode === 'creator' ? 'creator' : 'register'} label="Sign up with Google" />
+                {/* Option 1: type an email → Send code. */}
+                <EmailSignup key={mode} intent={mode === 'creator' ? 'creator' : 'register'} autoFocus={autoFocus} onDone={(res) => onSignedIn?.(res)} onVerified={() => setEmailVerified(true)} />
+                {!emailVerified && (
+                  <>
+                    <div className={seg.orRow} aria-hidden="true">
+                      <span>or</span>
+                    </div>
+                    {/* Option 2: pick the Gmail account directly; the code then goes to it. */}
+                    <GoogleButton intent={mode === 'creator' ? 'creator' : 'register'} label="Continue with Gmail" />
+                  </>
+                )}
               </>
             )}
             <p className={seg.consent}>

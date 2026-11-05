@@ -18,14 +18,22 @@ export const metadata: Metadata = {
  * Real catalog posters drift behind a centred sign-in card; signing in goes
  * to the homepage. Signed-in visitors skip it.
  */
-export default async function WelcomePage() {
+export default async function WelcomePage({ searchParams }: { searchParams: { signup?: string; mode?: string; dev?: string } }) {
   const user = await getAuthUserFromCookies();
   if (user) redirect('/');
   const posters = await getLandingPosters(120).catch(() => []);
+  // Back from "Continue with Gmail" (2026-11-05): open Create Account on the code box.
+  const gmail =
+    searchParams?.signup === 'gmail'
+      ? {
+          mode: searchParams.mode === 'creator' ? ('creator' as const) : ('register' as const),
+          devCode: process.env.NODE_ENV !== 'production' && /^\d{6}$/.test(searchParams.dev ?? '') ? searchParams.dev! : null,
+        }
+      : null;
   return (
     <>
       <SiteJsonLd />
-      <WelcomeClient posters={posters} />
+      <WelcomeClient posters={posters} gmailSignup={gmail} />
     </>
   );
 }
