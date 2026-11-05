@@ -10,6 +10,8 @@ import {
   safeNextPath,
   signGooglePass,
 } from '../../../../../lib/identity/googleAuth';
+import { EMAIL_CODE_COOKIE, emailCodeCookieOptions } from '../../../../../lib/identity/emailCode';
+import { issueSignupCode } from '../../../../../lib/identity/signupCode';
 import { logger } from '../../../../../lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +21,8 @@ export const dynamic = 'force-dynamic';
  *
  *   login / register / creator
  *     email already on an account → signed in (email marked verified)
- *     new email → Google pass cookie → /auth/google (choose username + password)
+ *     new email → 6-digit code emailed to it → /auth/google?step=code →
+ *                 (code ok) choose username + password
  *   reset → the account with this email → pass → /auth/google (new password)
  *   link  → the signed-in account gets this verified email
  */
@@ -99,14 +102,18 @@ export async function GET(request: NextRequest) {
       return res;
     }
 
-    // New member: choose a username + password next.
-    const res = NextResponse.redirect(to(`/auth/google?step=finish&next=${encodeURIComponent(next)}`));
+    // New member (2026-11-05, owner): Google picks the email, then a 6-digit
+    // code is emailed to it; only after the code do they choose a username +
+    // password. The verified-email pass is issued by
+    // POST /api/auth/email/verify-code, not here.
+    const signupIntent = intent === 'creator' ? 'creator' : 'register';
+    const issued = await issueSignupCode(profile.email, signupIntent);
+    if (!issued.ok) return fail(issued.code === 'EMAIL_IN_USE' ? 'GOOGLE_FAILED' : issued.code);
+    const dev = issued.devCode && process.env.NODE_ENV !== 'production' ? `&dev=${issued.devCode}` : '';
+    const res = NextResponse.redirect(to(`/auth/google?step=code&next=${encodeURIComponent(next)}${dev}`));
     res.cookies.delete(GOOGLE_STATE_COOKIE);
-    res.cookies.set(
-      GOOGLE_PASS_COOKIE,
-      signGooglePass({ email: profile.email, name: profile.name, intent: intent === 'creator' ? 'creator' : 'register' }),
-      googlePassCookieOptions(),
-    );
+    res.cookies.delete(GOOGLE_PASS_COOKIE);
+    res.cookies.set(EMAIL_CODE_COOKIE, issued.ticket, emailCodeCookieOptions());
     return res;
   } catch (error) {
     logger.error('Google sign-in failed after profile', { error: error as Error, component: 'auth/google/callback' });

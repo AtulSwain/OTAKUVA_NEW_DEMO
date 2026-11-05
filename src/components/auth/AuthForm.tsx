@@ -272,6 +272,9 @@ const GOOGLE_ERRORS: Record<string, string> = {
   NO_ACCOUNT: 'No OTAKUVA account uses that Google email. Create an account instead.',
   EMAIL_IN_USE: 'That Google email already belongs to another OTAKUVA account.',
   SIGNED_OUT: 'Sign in first, then verify your email.',
+  RATE_LIMITED: 'Too many codes were sent to that email. Try again in a few minutes.',
+  EMAIL_NOT_CONFIGURED: 'We can’t send email codes right now. Please try again later.',
+  EMAIL_SEND_FAILED: 'We couldn’t send the code to your Gmail. Please try again.',
 };
 
 export function googleErrorText(code: string | null | undefined): string | null {
@@ -487,15 +490,28 @@ export function GoogleFinish({ onDone, compact = false }: { onDone: (res: AuthRe
  * Email sign-up (2026-11-04, owner): email → 6-digit code by email → then the
  * same username + password step as Google (GoogleFinish), and a welcome email.
  */
-function EmailSignup({ intent, autoFocus, onDone, onVerified }: { intent: 'register' | 'creator'; autoFocus?: boolean; onDone: (res: AuthResult) => void; onVerified?: () => void }) {
+export function EmailSignup({
+  intent,
+  autoFocus,
+  onDone,
+  onVerified,
+  fromGoogle,
+}: {
+  intent: 'register' | 'creator';
+  autoFocus?: boolean;
+  onDone: (res: AuthResult) => void;
+  onVerified?: () => void;
+  /** After "Sign up with Google" (2026-11-05): Google picked this email and a code was already sent to it. */
+  fromGoogle?: { email: string; devCode?: string | null };
+}) {
   const { showToast } = useToast();
-  const [step, setStep] = useState<'email' | 'code' | 'finish'>('email');
-  const [email, setEmail] = useState('');
+  const [step, setStep] = useState<'email' | 'code' | 'finish'>(fromGoogle ? 'code' : 'email');
+  const [email, setEmail] = useState(fromGoogle?.email ?? '');
   const [code, setCode] = useState('');
-  const [devCode, setDevCode] = useState<string | null>(null);
+  const [devCode, setDevCode] = useState<string | null>(fromGoogle?.devCode ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
+  const [cooldown, setCooldown] = useState(fromGoogle ? 30 : 0);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -545,7 +561,7 @@ function EmailSignup({ intent, autoFocus, onDone, onVerified }: { intent: 'regis
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error || 'That code didn’t work.');
-        if (data.code === 'CODE_EXPIRED') setStep('email');
+        if (data.code === 'CODE_EXPIRED' && !fromGoogle) setStep('email');
         return;
       }
       setStep('finish');
@@ -567,7 +583,7 @@ function EmailSignup({ intent, autoFocus, onDone, onVerified }: { intent: 'regis
   return (
     <div className={seg.stack}>
       <ol className={seg.steps} aria-label="Steps">
-        <li {...stepState(1)}>Email</li>
+        <li {...stepState(1)}>{fromGoogle ? 'Google' : 'Email'}</li>
         <li {...stepState(2)}>Code</li>
         <li {...stepState(3)}>Username &amp; password</li>
       </ol>
@@ -645,9 +661,15 @@ function EmailSignup({ intent, autoFocus, onDone, onVerified }: { intent: 'regis
             )}
           </button>
           <div className={seg.codeLinks}>
-            <button type="button" className={seg.altLink} onClick={() => { setStep('email'); setError(null); }}>
-              Change email
-            </button>
+            {fromGoogle ? (
+              <button type="button" className={seg.altLink} onClick={() => startGoogle(intent, '/')}>
+                Use another Google account
+              </button>
+            ) : (
+              <button type="button" className={seg.altLink} onClick={() => { setStep('email'); setError(null); }}>
+                Change email
+              </button>
+            )}
             <button type="button" className={seg.altLink} onClick={() => sendCode()} disabled={cooldown > 0 || busy}>
               {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
             </button>
