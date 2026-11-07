@@ -7,8 +7,9 @@ import { ensureFreshAnnouncements } from '../../../lib/announcements/announcemen
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/announced?limit=&offset=&format=&studio=<slug|id>
- * Announced, not-yet-premiered anime, newest announcement first.
+ * GET /api/announced?limit=&offset=&format=&studio=<slug|id>&sort=announced|premiere
+ * Announced, not-yet-premiered anime, newest announcement first (or soonest
+ * premiere first with sort=premiere — the schedule's Coming Soon tab).
  */
 export async function GET(req: NextRequest) {
   ensureFreshAnnouncements();
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(60, Math.max(1, Number(sp.get('limit')) || 24));
     const offset = Math.max(0, Number(sp.get('offset')) || 0);
     const format = sp.get('format') || undefined;
+    const sort = sp.get('sort') === 'premiere' ? 'premiere' : 'announced';
     const studioKey = (sp.get('studio') || '').trim().slice(0, 200);
     let studioId: string | undefined;
     if (studioKey) {
@@ -25,7 +27,7 @@ export async function GET(req: NextRequest) {
       studioId = studio.id;
     }
     const [items, total] = await Promise.all([
-      getAnnouncedAnime({ limit, offset, format, studioId }),
+      getAnnouncedAnime({ limit, offset, format, studioId, sort }),
       countAnnouncedAnime({ format, studioId }),
     ]);
     const nextOffset = offset + items.length < total ? offset + items.length : null;

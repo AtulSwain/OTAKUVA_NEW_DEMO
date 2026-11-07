@@ -417,6 +417,29 @@ export async function removeAnimeFromList(userId: string, listId: string, animeI
   return { removed: removedCount > 0, count: await prisma.userListItem.count({ where: { listId } }) };
 }
 
+/**
+ * Sets the order of a list's anime (2026-11-06, drag to reorder). `order` must
+ * name exactly the anime already in the list (ids), each once — anything else
+ * is refused, so a stale or tampered request can't drop or add items.
+ */
+export async function reorderListItems(userId: string, listId: string, order: unknown): Promise<{ count: number }> {
+  await requireOwnedList(userId, listId);
+  if (!Array.isArray(order) || order.length > MAX_ITEMS_PER_LIST || !order.every((v) => typeof v === 'string')) {
+    throw new ListError(400, 'Send the new order as a list of anime ids.', 'BAD_ORDER');
+  }
+  const ids = order as string[];
+  const current = await prisma.userListItem.findMany({ where: { listId }, select: { animeId: true } });
+  const have = new Set(current.map((c) => c.animeId));
+  if (ids.length !== have.size || new Set(ids).size !== ids.length || !ids.every((id) => have.has(id))) {
+    throw new ListError(409, 'The list changed. Reload and try again.', 'ORDER_MISMATCH');
+  }
+  await prisma.$transaction([
+    ...ids.map((animeId, i) => prisma.userListItem.update({ where: { listId_animeId: { listId, animeId } }, data: { position: i + 1 } })),
+    prisma.userList.update({ where: { id: listId }, data: { updatedAt: new Date() } }),
+  ]);
+  return { count: ids.length };
+}
+
 export interface PublicCollection {
   id: string;
   name: string;

@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireVerifiedUser(request);
     if (user instanceof NextResponse) return user;
-    if (!RateLimiter.checkRateLimit('REVIEWS', user.id).allowed) {
+    if (!(await RateLimiter.check('REVIEWS', user.id)).allowed) {
       return NextResponse.json({ error: 'Too many requests. Please wait a moment.' }, { status: 429 });
     }
     const body = await request.json().catch(() => ({}));

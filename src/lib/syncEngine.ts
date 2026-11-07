@@ -1,4 +1,6 @@
 import type { Prisma } from '@prisma/client';
+import { resolveCharacter } from './characters/characterResolver';
+import { recordDeadLetter } from './deadLetter';
 import { prisma } from './prisma';
 import { linkStaffToAnime, resolveStaffPerson } from './people/personResolver';
 import { anilistProvider, jikanProvider, getFailoverProvider } from './providers';
@@ -743,24 +745,10 @@ export class SyncEngine {
 
     for (const c of characters) {
       try {
-        const characterSlug = generateSlug(c.name, c.externalId);
-        const charRecord = await prisma.character.upsert({
-          where: { slug: characterSlug },
-          update: {
-            externalId: c.externalId,
-            nameKanji: c.nameKanji || undefined,
-            about: c.about || undefined,
-            imageUrl: c.imageUrl || undefined,
-          },
-          create: {
-            externalId: c.externalId,
-            name: c.name,
-            slug: characterSlug,
-            nameKanji: c.nameKanji || null,
-            about: c.about || null,
-            imageUrl: c.imageUrl || null,
-          },
-        });
+        // Matched by provider id, not name (src/lib/characters/characterResolver.ts).
+        const characterId = await resolveCharacter(c, characters.provider === 'jikan' ? 'jikan' : 'anilist');
+        if (!characterId) continue;
+        const charRecord = { id: characterId };
 
         await prisma.animeCharacter.upsert({
           where: { animeId_characterId: { animeId, characterId: charRecord.id } },
@@ -796,7 +784,7 @@ export class SyncEngine {
         }
         count++;
       } catch (e) {
-        // Skip on duplicate
+        logger.warn('syncCharacters: skipped one character', { error: e as Error, component: 'syncEngine', animeId });
       }
     }
     return count;
@@ -1061,13 +1049,11 @@ export class SyncEngine {
             // needs. Never silently drop it as "resolved."
             notFound++;
             wasNotFound = true;
-            await prisma.deadLetterQueue.create({
-              data: {
-                provider: 'jikan',
-                entityType: 'ANIME',
-                externalId: String(currentId),
-                error: 'No data returned (not found or provider fetch failed after retries)',
-              },
+            await recordDeadLetter({
+              provider: 'jikan',
+              entityType: 'ANIME',
+              externalId: String(currentId),
+              error: 'No data returned (not found or provider fetch failed after retries)',
             }).catch(() => {});
           }
 
@@ -1099,13 +1085,11 @@ export class SyncEngine {
           });
         } catch (err: any) {
           failed++;
-          await prisma.deadLetterQueue.create({
-            data: {
-              provider: 'jikan',
-              entityType: 'ANIME',
-              externalId: String(currentId),
-              error: err?.message || String(err),
-            },
+          await recordDeadLetter({
+            provider: 'jikan',
+            entityType: 'ANIME',
+            externalId: String(currentId),
+            error: err?.message || String(err),
           }).catch(() => {});
 
           await prisma.syncCheckpoint.upsert({

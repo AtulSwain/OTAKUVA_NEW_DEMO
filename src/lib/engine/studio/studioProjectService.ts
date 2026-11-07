@@ -179,7 +179,7 @@ export class StudioProjectService {
       } else if (status === 'COMPLETED') {
         whereAnime.status = 'Finished';
       } else {
-        whereAnime.status = { contains: status };
+        whereAnime.status = { contains: status, mode: 'insensitive' };
       }
     }
 
@@ -197,9 +197,9 @@ export class StudioProjectService {
 
     if (queryStr) {
       whereAnime.OR = [
-        { canonicalTitle: { contains: queryStr } },
-        { slug: { contains: queryStr } },
-        { synopsis: { contains: queryStr } },
+        { canonicalTitle: { contains: queryStr, mode: 'insensitive' } },
+        { slug: { contains: queryStr, mode: 'insensitive' } },
+        { synopsis: { contains: queryStr, mode: 'insensitive' } },
       ];
     }
 

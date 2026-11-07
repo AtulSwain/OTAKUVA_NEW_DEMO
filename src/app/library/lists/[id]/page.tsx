@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CommunityScoreBadge } from '../../../../components/rating/CommunityScoreBadge';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Check, Globe, ImageIcon, Link2, Lock, Pencil, Share2, Star, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpDown, Check, ChevronLeft, ChevronRight, Globe, GripVertical, ImageIcon, Link2, Lock, Pencil, Share2, Star, Trash2, X } from 'lucide-react';
 import { BannerPicker, type BannerChoice } from '../../../../components/collections/BannerPicker';
 import { useAuth } from '../../../../context/AuthContext';
 import { useToast } from '../../../../context/ToastContext';
@@ -58,6 +58,12 @@ export default function ListDetailPage() {
   const [busy, setBusy] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(false);
   const [bannerPick, setBannerPick] = useState<BannerChoice>(null);
+  // Arrange mode (2026-11-06): drag cards (mouse) or use the arrows (touch,
+  // keyboard). Saved a moment after the last move; rolled back on failure.
+  const [arranging, setArranging] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const saveTimer = useRef<number | null>(null);
+  const savedOrder = useRef<ListAnime[] | null>(null);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -138,6 +144,41 @@ export default function ListDetailPage() {
     } catch (err: any) {
       showToast(err?.message || "Couldn't change the banner", 'error');
     }
+  };
+
+  // Arrange mode helpers (state is declared at the top, before any early return).
+
+  const saveOrder = (items: ListAnime[]) => {
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/lists/${list.id}/items`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: items.map((i) => i.id) }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error);
+        savedOrder.current = items;
+      } catch (err: any) {
+        if (savedOrder.current) setList((prev) => (prev ? { ...prev, items: savedOrder.current! } : prev));
+        showToast(err?.message || "Couldn't save the new order", 'error');
+      }
+    }, 500);
+  };
+
+  const moveItem = (fromId: string, toIndex: number) => {
+    setList((prev) => {
+      if (!prev) return prev;
+      const items = [...prev.items];
+      const from = items.findIndex((i) => i.id === fromId);
+      if (from < 0 || toIndex < 0 || toIndex >= items.length || from === toIndex) return prev;
+      if (!savedOrder.current) savedOrder.current = prev.items;
+      const [moved] = items.splice(from, 1);
+      items.splice(toIndex, 0, moved);
+      saveOrder(items);
+      return { ...prev, items };
+    });
   };
 
   const removeItem = async (anime: ListAnime) => {
@@ -259,9 +300,42 @@ export default function ListDetailPage() {
           onAction={() => router.push('/anime')}
         />
       ) : (
-        <div className={styles.posterGrid}>
-          {list.items.map((anime) => (
-            <div key={anime.id} className={styles.posterCard}>
+        <>
+        {list.items.length > 1 && (
+          <div className={styles.arrangeBar}>
+            <button
+              type="button"
+              className={`${styles.arrangeBtn} ${arranging ? styles.arrangeBtnOn : ''}`}
+              aria-pressed={arranging}
+              onClick={() => {
+                setArranging((v) => !v);
+                savedOrder.current = list.items;
+              }}
+            >
+              {arranging ? <Check size={14} /> : <ArrowUpDown size={14} />} {arranging ? 'Done' : 'Arrange'}
+            </button>
+            {arranging && <span className={styles.arrangeHint}>Drag the posters, or use the arrows. Changes save on their own.</span>}
+          </div>
+        )}
+        <div className={`${styles.posterGrid} ${arranging ? styles.posterGridArranging : ''}`}>
+          {list.items.map((anime, index) => (
+            <div
+              key={anime.id}
+              className={`${styles.posterCard} ${dragId === anime.id ? styles.posterCardDragging : ''}`}
+              draggable={arranging}
+              onDragStart={(e) => {
+                if (!arranging) return;
+                setDragId(anime.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(e) => {
+                if (!arranging || !dragId) return;
+                e.preventDefault();
+                if (dragId !== anime.id) moveItem(dragId, index);
+              }}
+              onDragEnd={() => setDragId(null)}
+              onDrop={(e) => e.preventDefault()}
+            >
               <Link href={`/anime/${anime.slug || anime.id}`} className={styles.posterLink}>
                 <div className={styles.posterArt}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -271,12 +345,30 @@ export default function ListDetailPage() {
                 <strong className={styles.posterTitle}>{anime.title}</strong>
                 <span className={styles.posterMeta}>{[anime.year, anime.type].filter(Boolean).join(' · ')}</span>
               </Link>
-              <button type="button" className={styles.removeBtn} onClick={() => removeItem(anime)} aria-label={`Remove ${anime.title} from this list`}>
-                <X size={14} />
-              </button>
+              {arranging ? (
+                <div className={styles.arrangeControls}>
+                  <button type="button" onClick={() => moveItem(anime.id, index - 1)} disabled={index === 0} aria-label={`Move ${anime.title} earlier`}>
+                    <ChevronLeft size={15} />
+                  </button>
+                  <GripVertical size={14} aria-hidden="true" className={styles.arrangeGrip} />
+                  <button
+                    type="button"
+                    onClick={() => moveItem(anime.id, index + 1)}
+                    disabled={index === list.items.length - 1}
+                    aria-label={`Move ${anime.title} later`}
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              ) : (
+                <button type="button" className={styles.removeBtn} onClick={() => removeItem(anime)} aria-label={`Remove ${anime.title} from this list`}>
+                  <X size={14} />
+                </button>
+              )}
             </div>
           ))}
         </div>
+        </>
       )}
 
       <ShareListDialog

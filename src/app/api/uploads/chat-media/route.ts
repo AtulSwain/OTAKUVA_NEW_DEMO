@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const authUser = await requireVerifiedUser(request);
   if (authUser instanceof NextResponse) return authUser;
 
-  const rate = RateLimiter.checkRateLimit('MEDIA_UPLOAD', authUser.id);
+  const rate = await RateLimiter.check('MEDIA_UPLOAD', authUser.id);
   if (!rate.allowed) {
     return NextResponse.json(
       { error: 'Too many uploads. Please wait a minute and try again.' },

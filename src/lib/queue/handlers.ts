@@ -29,6 +29,7 @@ import { runMaturationBatch } from '../badges/countingService';
 import { logger } from '../logger';
 import { getRedisConnection } from './connection';
 import type { SyncJobName } from './queue';
+import { runDeadLetterSweep } from '../deadLetterSweep';
 import { JOB_TYPES } from './jobTypes';
 import {
   markSyncJobRunning,
@@ -223,6 +224,21 @@ async function handleBadgeMaturation(job: Job<{ syncJobId: string }>) {
 }
 
 // ---------------------------------------------------------------------------
+// 'dead-letter:sweep' (2026-11-06) — merges duplicate DeadLetterQueue rows,
+// retries what's retryable, archives what's exhausted. Recurring only.
+// ---------------------------------------------------------------------------
+async function handleDeadLetterSweep(job: Job<{ syncJobId: string }>) {
+  const { syncJobId } = job.data;
+  await markSyncJobRunning(syncJobId, job.attemptsMade);
+  const result = await runDeadLetterSweep({ batchSize: 500 });
+  await completeSyncJob(syncJobId, {
+    processedCount: result.examined,
+    updatedCount: result.recovered,
+  });
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // 'anime-import' — was POST /api/admin/anime/import
 // (src/lib/ingestion/jikanImportJob.ts's JikanImportJobManager)
 // ---------------------------------------------------------------------------
@@ -392,6 +408,7 @@ const handlersByName: Record<SyncJobName, (job: Job<any>) => Promise<unknown>> =
   'news-sync': handleNewsSync,
   'episode-backfill': handleEpisodeBackfill,
   'badges:maturation': handleBadgeMaturation,
+  'dead-letter:sweep': handleDeadLetterSweep,
 };
 
 // Job names BullMQ's repeatable scheduler (src/lib/queue/recurring.ts) can
@@ -406,6 +423,7 @@ const autoTrackedJobMeta: Partial<Record<SyncJobName, { provider: string; jobTyp
   'sync:airing': { provider: 'anilist', jobType: JOB_TYPES.AIRING },
   'episode-backfill': { provider: 'multi', jobType: JOB_TYPES.EPISODE_BACKFILL },
   'badges:maturation': { provider: 'internal', jobType: JOB_TYPES.BADGE_MATURATION },
+  'dead-letter:sweep': { provider: 'internal', jobType: JOB_TYPES.DEAD_LETTER_SWEEP },
 };
 
 export async function processSyncJob(job: Job): Promise<unknown> {
@@ -459,6 +477,8 @@ export function describeJobForDeadLetter(job: Job): { provider: string; entityTy
       return { provider: 'multi', entityType: 'EPISODE', externalId: String(syncJobId) };
     case 'badges:maturation':
       return { provider: 'internal', entityType: 'BADGE_MATURATION', externalId: String(syncJobId) };
+    case 'dead-letter:sweep':
+      return { provider: 'internal', entityType: 'DEAD_LETTER_SWEEP', externalId: String(syncJobId) };
     default:
       return { provider: 'unknown', entityType: 'UNKNOWN', externalId: String(syncJobId) };
   }

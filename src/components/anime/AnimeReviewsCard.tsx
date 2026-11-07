@@ -30,6 +30,7 @@ import type { CommunityTag, ReplyItem } from '../../lib/reviews/reviewSocial';
 import { retentionColor, retentionLabel, retentionSoftColor } from '../../lib/rating/retentionTone';
 import styles from './AnimeReviewsCard.module.css';
 import { Composer } from '../ui/Composer';
+import { FollowButton } from '../social/FollowButton';
 
 export interface ReviewItem {
   id: string;
@@ -62,6 +63,8 @@ export interface ReviewItem {
     avatarUrl?: string | null;
     /** Reviewer's current badge tier (not the tier when the review was written). */
     badge?: { tier: string; count: number };
+    /** The viewer already follows this reviewer. */
+    followedByViewer?: boolean;
   };
   anime?: {
     id: string;
@@ -270,6 +273,9 @@ export const AnimeReviewsCard: React.FC<AnimeReviewsCardProps> = ({
   const [showSpoilers, setShowSpoilers] = useState(false);
   const [creatorsOnly, setCreatorsOnly] = useState(false);
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+  // Follow taps on review cards, by username, so every review by the same
+  // person updates together.
+  const [followOverrides, setFollowOverrides] = useState<Record<string, boolean>>({});
 
   const [likeStates, setLikeStates] = useState<Record<string, { count: number; liked: boolean }>>({});
   const [reportingReview, setReportingReview] = useState<{ id: string; title: string } | null>(null);
@@ -597,6 +603,17 @@ export const AnimeReviewsCard: React.FC<AnimeReviewsCardProps> = ({
                   <Verdict retention={rev.retention} />
                   <SpoilerTag level={rev.spoilerLevel} />
                   {own && <span className={styles.youMark}>Your review</span>}
+                  {/* Follow the reviewer right from their review (2026-11-06). */}
+                  {!own && rev.user?.username && user?.username !== rev.user.username && (
+                    <span className={styles.followSlot}>
+                      <FollowButton
+                        username={rev.user.username}
+                        size="sm"
+                        following={followOverrides[rev.user.username] ?? Boolean(rev.user.followedByViewer)}
+                        onChange={(next) => setFollowOverrides((m) => ({ ...m, [rev.user!.username]: next }))}
+                      />
+                    </span>
+                  )}
                 </div>
                 <div className={styles.meta}>
                   {rev.pinnedAt && (

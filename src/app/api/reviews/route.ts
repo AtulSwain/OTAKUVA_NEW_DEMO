@@ -265,6 +265,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Which of these reviewers the viewer already follows (Follow button on
+    // review cards, 2026-11-06). One small query; none for signed-out viewers.
+    const authorIds = Array.from(new Set([...fetched, ...pinnedRows].map((r) => r.user.id)));
+    const viewerFollows =
+      authUser && authorIds.length
+        ? new Set(
+            (await prisma.follow.findMany({ where: { followerId: authUser.id, followingId: { in: authorIds } }, select: { followingId: true } })).map(
+              (f) => f.followingId
+            )
+          )
+        : new Set<string>();
+
     const toItem = (r: (typeof fetched)[number]) => ({
       id: r.id,
       pinnedAt: r.pinnedAt ? r.pinnedAt.toISOString() : null,
@@ -291,6 +303,7 @@ export async function GET(request: NextRequest) {
         avatarUrl: r.user.avatarUrl,
         // Reviewer's CURRENT tier, not the tier they held when they wrote this review.
         badge: briefs.get(r.user.id) ?? { tier: 'shoshinsha', count: 0 },
+        followedByViewer: viewerFollows.has(r.user.id),
       },
       anime: {
         id: r.anime.id,

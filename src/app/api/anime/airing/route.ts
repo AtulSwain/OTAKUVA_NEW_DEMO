@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     };
 
     if (day && day !== 'All') {
-      where.broadcastDay = { contains: day };
+      where.broadcastDay = { contains: day, mode: 'insensitive' };
     }
 
     const [items, total] = await Promise.all([

@@ -17,7 +17,7 @@ export async function GET(
 
     const genre = await prisma.genre.findFirst({
       where: {
-        OR: [{ slug }, { name: { contains: slug } }],
+        OR: [{ slug }, { name: { contains: slug, mode: 'insensitive' } }],
       },
     });
 

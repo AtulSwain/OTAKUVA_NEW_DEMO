@@ -37,10 +37,10 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       where.OR = [
-        { title: { contains: search } },
-        { body: { contains: search } },
-        { user: { username: { contains: search } } },
-        { anime: { canonicalTitle: { contains: search } } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { body: { contains: search, mode: 'insensitive' } },
+        { user: { username: { contains: search, mode: 'insensitive' } } },
+        { anime: { canonicalTitle: { contains: search, mode: 'insensitive' } } },
       ];
     }
 

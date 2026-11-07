@@ -45,6 +45,7 @@ import {
   type LucideIcon,
   ShieldCheck,
   Megaphone,
+  Rss,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BROWSE_GENRES } from '../../lib/browse';
@@ -79,6 +80,7 @@ const MOBILE_QUICK_LINKS: { href: string; label: string; icon: LucideIcon }[] = 
   { href: '/articles', label: 'Articles', icon: PenLine },
   { href: '/community', label: 'Community', icon: Users },
   { href: '/discussions', label: 'Discussions', icon: MessageSquare },
+  { href: '/following', label: 'Following', icon: Rss },
 ];
 
 interface HeaderProps {
@@ -503,6 +505,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
                   >
                     <Bookmark size={14} />
                     <span>My Library</span>
+                  </Link>
+
+                  <Link
+                    href="/following"
+                    className={styles.dropdownLink}
+                    onClick={() => setIsUserMenuOpen(false)}
+                  >
+                    <Rss size={14} />
+                    <span>Following feed</span>
                   </Link>
 
                   <Link

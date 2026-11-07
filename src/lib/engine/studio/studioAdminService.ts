@@ -85,12 +85,12 @@ export class StudioAdminService {
 
     if (queryStr) {
       where.OR = [
-        { name: { contains: queryStr } },
-        { nativeName: { contains: queryStr } },
-        { romanizedName: { contains: queryStr } },
-        { slug: { contains: queryStr.toLowerCase() } },
-        { alternativeNamesJson: { contains: queryStr } },
-        { externalId: { contains: queryStr } },
+        { name: { contains: queryStr, mode: 'insensitive' } },
+        { nativeName: { contains: queryStr, mode: 'insensitive' } },
+        { romanizedName: { contains: queryStr, mode: 'insensitive' } },
+        { slug: { contains: queryStr.toLowerCase(), mode: 'insensitive' } },
+        { alternativeNamesJson: { contains: queryStr, mode: 'insensitive' } },
+        { externalId: { contains: queryStr, mode: 'insensitive' } },
       ];
     }
 

@@ -60,6 +60,9 @@ export type AnnouncedQuery = {
   studioId?: string;
   /** TV | Movie | ONA | OVA | Special */
   format?: string;
+  /** 'announced' (default): newest announcement first. 'premiere': soonest premiere first
+   *  (exact day, then month, then season, then year; no date last). */
+  sort?: 'announced' | 'premiere';
 };
 
 export const ANNOUNCED_FORMATS = ['TV', 'Movie', 'ONA', 'OVA', 'Special'] as const;
@@ -117,14 +120,30 @@ function premiereLabel(a: {
 const CONTINUES: Record<string, string> = { Prequel: 'Sequel to', PREQUEL: 'Sequel to', 'Parent story': 'Side story of' };
 const CONTINUED_BY: Record<string, string> = { Sequel: 'Sequel to', SEQUEL: 'Sequel to', 'Side story': 'Side story of' };
 
+const ANNOUNCED_ORDER = Prisma.sql`CASE WHEN a."anilistId" IS NULL AND a."firstImportedAt" > now() - interval '30 days' THEN 0 ELSE 1 END,
+             a."anilistId" DESC NULLS LAST, a."firstImportedAt" DESC, a.id`;
+
+// Soonest premiere first, using only what's stored: the exact day, else the
+// month, else the season (mid-season), else the year (its end). Within the
+// same estimate, an exact day sorts before a vaguer one.
+const PREMIERE_ORDER = Prisma.sql`COALESCE(
+      CASE WHEN a."datePrecision" = 'DAY' THEN a."startDate"::date END,
+      CASE WHEN a."startYear" IS NOT NULL AND a."startMonth" BETWEEN 1 AND 12 THEN make_date(a."startYear", a."startMonth", 28) END,
+      CASE WHEN COALESCE(a."seasonYear", a.year, a."startYear") IS NOT NULL AND a.season IS NOT NULL
+        THEN make_date(COALESCE(a."seasonYear", a.year, a."startYear"),
+          CASE upper(a.season) WHEN 'WINTER' THEN 2 WHEN 'SPRING' THEN 5 WHEN 'SUMMER' THEN 8 WHEN 'FALL' THEN 11 ELSE 12 END, 15) END,
+      CASE WHEN COALESCE(a."startYear", a.year) IS NOT NULL THEN make_date(COALESCE(a."startYear", a.year), 12, 31) END
+    ) ASC NULLS LAST,
+    CASE WHEN a."datePrecision" = 'DAY' THEN 0 ELSE 1 END,
+    a."anilistId" DESC NULLS LAST, a.id`;
+
 export async function getAnnouncedAnime(q: AnnouncedQuery = {}): Promise<AnnouncedAnime[]> {
   const limit = Math.min(Math.max(1, Math.floor(q.limit ?? 24)), MAX_LIMIT);
   const offset = Math.max(0, Math.floor(q.offset ?? 0));
   const idRows = await prisma.$queryRaw<{ id: string }[]>`
     SELECT a.id FROM "Anime" a
     WHERE ${announcedWhere(q)}
-    ORDER BY CASE WHEN a."anilistId" IS NULL AND a."firstImportedAt" > now() - interval '30 days' THEN 0 ELSE 1 END,
-             a."anilistId" DESC NULLS LAST, a."firstImportedAt" DESC, a.id
+    ORDER BY ${q.sort === 'premiere' ? PREMIERE_ORDER : ANNOUNCED_ORDER}
     LIMIT ${limit} OFFSET ${offset}`;
   const ids = idRows.map((r) => r.id);
   if (ids.length === 0) return [];

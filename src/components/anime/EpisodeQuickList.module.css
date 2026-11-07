@@ -257,3 +257,63 @@
 @media (max-width: 720px) {
   .epLineRate { padding-left: 0; min-width: 0; }
 }
+
+/* ── Release tracker (2026-11-06, owner): "3 / 12 episodes out", one
+   segment per declared episode, the next one breathing; "Complete" in green
+   once the last episode has aired. ── */
+.release { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, 0.035); box-shadow: var(--depth-1, none); animation: eqlRise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.releaseHead { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; }
+.releaseLabel { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.liveDot { width: 7px; height: 7px; border-radius: 50%; background: #34C77B; box-shadow: 0 0 0 0 rgba(52, 199, 123, 0.5); animation: eqlPing 2s ease-out infinite; }
+.releaseCount { display: inline-flex; align-items: baseline; gap: 5px; font-variant-numeric: tabular-nums; }
+.releaseCount strong { display: inline-block; font-size: 22px; font-weight: 800; letter-spacing: -0.03em; color: var(--text-primary); animation: eqlPop 0.5s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
+.releaseCount span { font-size: 14px; font-weight: 700; color: var(--text-secondary); }
+.releaseCount .releaseUnit { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+.releaseNext { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.releaseDone .releaseLabel, .releaseDone .releaseNext { color: #34C77B; }
+.releaseDone { background: rgba(52, 199, 123, 0.07); }
+
+.releaseStrip { display: flex; gap: 3px; height: 8px; }
+.releaseStrip span { flex: 1; min-width: 3px; border-radius: 3px; transform-origin: left center; }
+.relOut { background: var(--text-primary, #fff); animation: eqlFill 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(min(var(--i, 0), 30) * 18ms); }
+.releaseDone .relOut { background: #34C77B; }
+.relNext { background: rgba(255, 255, 255, 0.28); animation: eqlBreathe 1.8s ease-in-out infinite; }
+.relLater { background: rgba(255, 255, 255, 0.07); }
+.releaseBar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.releaseBar span { display: block; height: 100%; border-radius: inherit; background: var(--text-primary, #fff); transform-origin: left center; animation: eqlFill 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.releaseDone .releaseBar span { background: #34C77B; }
+
+@media (max-width: 640px) {
+  .release { padding: 12px 14px; }
+  .releaseNext { margin-left: 0; width: 100%; }
+}
+
+/* ── Fluid motion: rows slide in (staggered), progress fills grow, hover
+   eases. `from` only, so upcoming rows still settle at their dimmed opacity. ── */
+.epLine { animation: eqlRise 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; transition: background-color 0.2s ease, transform 0.2s ease; }
+.epLine:nth-child(2) { animation-delay: 25ms; }
+.epLine:nth-child(3) { animation-delay: 50ms; }
+.epLine:nth-child(4) { animation-delay: 75ms; }
+.epLine:nth-child(5) { animation-delay: 100ms; }
+.epLine:nth-child(6) { animation-delay: 125ms; }
+.epLine:nth-child(7) { animation-delay: 150ms; }
+.epLine:nth-child(8) { animation-delay: 175ms; }
+.epLine:nth-child(n + 9) { animation-delay: 200ms; }
+@media (hover: hover) { .epLine:hover { transform: translateX(2px); } }
+.strip span { transition: background-color 0.35s ease, transform 0.35s ease; }
+.segWatched { animation: eqlFill 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: left center; }
+.counterBar span { transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.rangeChip, .tab { transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease; }
+.rangeChip:active, .tab:active, .markAllBtn:active, .trailerBtn:active { transform: scale(0.96); }
+
+@keyframes eqlRise { from { opacity: 0; transform: translateY(6px); } }
+@keyframes eqlFill { from { transform: scaleX(0); } }
+@keyframes eqlPop { from { transform: scale(0.7); opacity: 0; } }
+@keyframes eqlBreathe { 50% { background: rgba(255, 255, 255, 0.5); } }
+@keyframes eqlPing { 70% { box-shadow: 0 0 0 6px rgba(52, 199, 123, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 199, 123, 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .release, .epLine, .relOut, .relNext, .liveDot, .releaseCount strong, .releaseBar span, .segWatched { animation: none; }
+  .epLine:hover { transform: none; }
+  .counterBar span { transition: none; }
+}

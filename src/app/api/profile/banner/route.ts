@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate Limiting (10 requests / minute)
-    const rateCheck = RateLimiter.checkRateLimit('MEDIA_UPLOAD', authUser.id);
+    const rateCheck = await RateLimiter.check('MEDIA_UPLOAD', authUser.id);
     if (!rateCheck.allowed) {
       return NextResponse.json(
         { error: 'Too many upload attempts. Please wait a minute and try again.' },

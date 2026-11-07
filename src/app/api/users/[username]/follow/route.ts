@@ -40,7 +40,7 @@ export async function POST(request: NextRequest, { params }: { params: { usernam
     const authUser = await getAuthUserFromRequest(request);
     if (!authUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
 
-    const rate = RateLimiter.checkRateLimit('COMMUNITY', authUser.id);
+    const rate = await RateLimiter.check('COMMUNITY', authUser.id);
     if (!rate.allowed) return NextResponse.json({ error: 'Too many requests. Please wait a moment.' }, { status: 429 });
 
     const { created, followerCount } = await followUser(authUser.id, username(params));

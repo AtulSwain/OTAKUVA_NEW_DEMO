@@ -11,6 +11,13 @@
 
 html {
   scroll-behavior: smooth;
+  /* No scroll anchoring: pages stream in section by section, and anchoring
+     made the view chase that content down the page (ScrollReset.tsx). */
+  overflow-anchor: none;
+}
+
+body {
+  overflow-anchor: none;
 }
 
 html,
@@ -60,7 +67,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
-  font-size: var(--font-display, 24px);
+  /* Was var(--font-display) — a font FAMILY token, so the size was invalid and
+     bare h1s fell back to body size (fixed 2026-11-06). */
+  font-size: 24px;
   font-weight: 800;
 }
 

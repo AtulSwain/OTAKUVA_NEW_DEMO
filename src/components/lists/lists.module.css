@@ -179,3 +179,27 @@
 .bannerEdit { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .bannerEdit > :first-child { align-self: stretch; }
 @media (max-width: 640px) { .bannerBand { aspect-ratio: 16 / 7; border-radius: 16px; } }
+
+/* Arrange mode on a list's page (2026-11-06): drag or arrow-move posters. */
+.arrangeBar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.arrangeBtn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07); color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.arrangeBtn:hover { background: rgba(255, 255, 255, 0.12); }
+.arrangeBtn:active { transform: scale(0.96); }
+.arrangeBtnOn, .arrangeBtnOn:hover { background: #fff; color: #000; }
+.arrangeHint { font-size: 12.5px; color: var(--text-muted); }
+.posterGridArranging .posterCard { cursor: grab; transition: transform 0.2s ease, opacity 0.2s ease; }
+.posterGridArranging .posterLink { pointer-events: none; }
+.posterCardDragging { opacity: 0.45; transform: scale(0.97); }
+.arrangeControls { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; }
+.arrangeControls button {
+  display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08); color: var(--text-primary); cursor: pointer; transition: background 0.2s ease;
+}
+.arrangeControls button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.15); }
+.arrangeControls button:disabled { opacity: 0.3; cursor: default; }
+.arrangeGrip { color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce) { .posterGridArranging .posterCard { transition: none; } }

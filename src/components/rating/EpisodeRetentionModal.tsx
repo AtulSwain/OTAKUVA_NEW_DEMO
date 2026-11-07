@@ -18,6 +18,10 @@ export interface EpisodeRetentionSummary {
   released: number;
   isOpen?: boolean;
   next?: { number: number; airingAt: string } | null;
+  /** Declared episode total, when known. */
+  total?: number | null;
+  /** Still airing (new show or new season). */
+  airing?: boolean;
   /** The anime's community retention (see retentionScore.ts). */
   retention?: {
     value: number | null;

@@ -1,3 +1,5 @@
+import { clearHits, oldestHit, recordHit } from './sharedRateStore';
+
 /**
  * OTAKUVA SECURITY — PHASE 10.1 & 10.3
  * CATEGORY-AWARE RATE LIMITER ENGINE
@@ -64,6 +66,46 @@ export interface RateLimitStatus {
 
 export class RateLimiter {
   private static store = new Map<string, number[]>();
+
+  /**
+   * Shared limit (2026-11-06): counts are kept in Redis or Postgres, so they
+   * hold across every server instance (see sharedRateStore.ts). Use this for
+   * anything a person can abuse — writes, uploads, auth-adjacent checks.
+   * `checkRateLimit` below stays for high-volume, low-risk reads.
+   */
+  static async check(
+    category: RateLimitCategory,
+    identifier: string,
+    customPolicy?: Partial<RateLimitPolicy>
+  ): Promise<RateLimitStatus> {
+    const policy: RateLimitPolicy = { ...RATE_LIMIT_POLICIES[category], ...customPolicy };
+    const key = `ratelimit:${category}:${identifier}`;
+    const count = await recordHit(key, policy.windowMs);
+    if (count <= policy.maxRequests) {
+      return {
+        allowed: true,
+        currentCount: count,
+        maxAllowed: policy.maxRequests,
+        remaining: policy.maxRequests - count,
+        resetMs: policy.windowMs,
+      };
+    }
+    const oldest = await oldestHit(key, policy.windowMs);
+    const resetMs = Math.max(1000, (oldest ?? Date.now()) + policy.windowMs - Date.now());
+    return {
+      allowed: false,
+      currentCount: count,
+      maxAllowed: policy.maxRequests,
+      remaining: 0,
+      resetMs,
+      retryAfterSec: Math.max(1, Math.ceil(resetMs / 1000)),
+    };
+  }
+
+  /** Clears a shared limit (see `check`). */
+  static async resetShared(category: RateLimitCategory, identifier: string) {
+    await clearHits(`ratelimit:${category}:${identifier}`);
+  }
 
   /**
    * Evaluates if a request is allowed under the category policy

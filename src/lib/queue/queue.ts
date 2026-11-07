@@ -38,7 +38,8 @@ export type SyncJobName =
   | 'anime-import'
   | 'news-sync'
   | 'episode-backfill'
-  | 'badges:maturation';
+  | 'badges:maturation'
+  | 'dead-letter:sweep';
 
 export const MAX_JOB_ATTEMPTS = 5;
 export const BACKOFF_BASE_MS = 5000;

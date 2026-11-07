@@ -17,7 +17,8 @@
  *     otherwise an attacker who keeps hammering a locked account would
  *     keep sliding the window forward and the lockout would never expire.
  *
- * Backing store: Redis (reusing the BullMQ producer connection from
+ * Backing store (updated 2026-11-06 — see sharedRateStore.ts): Redis, then
+ * Postgres, then memory. Original note: Redis (reusing the BullMQ producer connection from
  * src/lib/queue/connection.ts — same REDIS_URL, already a hard dependency
  * for this app) via sorted sets, so the limit is shared across app
  * instances. If Redis is unreachable, falls back to an in-memory sliding
@@ -33,8 +34,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getProducerRedisConnection, isRedisConfigured } from '../queue/connection';
-import { logger } from '../logger';
+import { clearHits, peekHits, recordHit } from './sharedRateStore';
 
 export const IP_MAX_ATTEMPTS = 10;
 export const IP_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -48,72 +48,9 @@ export interface RateLimitResult {
   retryAfterSec?: number;
 }
 
-// --- In-memory fallback -----------------------------------------------
-// Only used while Redis is unreachable. Same sliding-window-of-timestamps
-// approach as src/lib/security/rateLimiter.ts, kept local/private here
-// rather than sharing that class so this module has no dependency the
-// Redis path doesn't also need.
-const memoryStore = new Map<string, number[]>();
-
-function memoryPeek(key: string, windowMs: number): number[] {
-  const now = Date.now();
-  const timestamps = (memoryStore.get(key) || []).filter((t) => t > now - windowMs);
-  memoryStore.set(key, timestamps);
-  return timestamps;
-}
-
-function memoryRecord(key: string, windowMs: number): number[] {
-  const now = Date.now();
-  const timestamps = memoryPeek(key, windowMs);
-  timestamps.push(now);
-  memoryStore.set(key, timestamps);
-  return timestamps;
-}
-
-// --- Redis circuit breaker ----------------------------------------------
-// Avoid paying ioredis's retry/backoff on every single request while Redis
-// is down; fall back to memory immediately for a cooldown window, then try
-// Redis again.
-const REDIS_COOLDOWN_MS = 30_000;
-let redisDownUntil = 0;
-
-function redisAvailable(): boolean {
-  // No Redis configured (e.g. Vercel without a Redis add-on): use the
-  // in-memory limiter and never open a connection to localhost.
-  if (!isRedisConfigured()) return false;
-  return Date.now() >= redisDownUntil;
-}
-
-function markRedisDown(err: unknown) {
-  redisDownUntil = Date.now() + REDIS_COOLDOWN_MS;
-  logger.warn('Auth rate limiter: Redis unavailable, falling back to in-memory limiter', {
-    toSentry: true,
-    error: err instanceof Error ? err : new Error(String(err)),
-    component: 'security/authRateLimiter',
-  });
-}
-
-/** Current count within the window, via Redis sorted set, without adding an entry. */
-async function redisPeek(key: string, windowMs: number): Promise<number> {
-  const redis = getProducerRedisConnection();
-  const now = Date.now();
-  const windowStart = now - windowMs;
-  await redis.zremrangebyscore(key, 0, windowStart);
-  return redis.zcard(key);
-}
-
-/** Adds one entry (score = now) and returns the count within the window afterward. */
-async function redisRecord(key: string, windowMs: number): Promise<number> {
-  const redis = getProducerRedisConnection();
-  const now = Date.now();
-  const windowStart = now - windowMs;
-  await redis.zremrangebyscore(key, 0, windowStart);
-  // Unique member per call so concurrent attempts in the same millisecond
-  // don't collide and get de-duped by the sorted set.
-  await redis.zadd(key, now, `${now}-${Math.random().toString(36).slice(2)}`);
-  await redis.pexpire(key, windowMs);
-  return redis.zcard(key);
-}
+// Storage (2026-11-06): sharedRateStore — Redis when REDIS_URL is set, else
+// Postgres ("RateLimitHit"), else process memory. Before, without Redis
+// (Vercel) this was memory-only, so each instance kept its own count.
 
 function toResult(count: number, maxAttempts: number, windowMs: number): RateLimitResult {
   if (count < maxAttempts) return { allowed: true };
@@ -122,53 +59,23 @@ function toResult(count: number, maxAttempts: number, windowMs: number): RateLim
 
 /**
  * Checks (without recording) whether `key` is currently at/over its limit.
- * Use before doing any real work, e.g. to short-circuit a locked-out
- * account before querying the DB. `count` here is prior recorded attempts
- * (not including the one being checked), so the boundary is `count < max`.
+ * `count` is prior recorded attempts, so the boundary is `count < max`.
  */
 async function peek(key: string, maxAttempts: number, windowMs: number): Promise<RateLimitResult> {
-  if (redisAvailable()) {
-    try {
-      const count = await redisPeek(key, windowMs);
-      return toResult(count, maxAttempts, windowMs);
-    } catch (err) {
-      markRedisDown(err);
-    }
-  }
-  const count = memoryPeek(key, windowMs).length;
-  return toResult(count, maxAttempts, windowMs);
+  return toResult(await peekHits(key, windowMs), maxAttempts, windowMs);
 }
 
 /**
- * Records one attempt against `key`, then returns whether it's now at/over
- * its limit. `count` here already includes the attempt just recorded, so
- * the Nth attempt itself (count === max) is still allowed — the boundary
- * is `count <= max`, not `count < max` as in peek().
+ * Records one attempt, then returns whether it's now over the limit. The
+ * count includes this attempt, so the Nth attempt itself is still allowed.
  */
 async function recordAndCheck(key: string, maxAttempts: number, windowMs: number): Promise<RateLimitResult> {
-  if (redisAvailable()) {
-    try {
-      const count = await redisRecord(key, windowMs);
-      return toResult(count - 1, maxAttempts, windowMs);
-    } catch (err) {
-      markRedisDown(err);
-    }
-  }
-  const count = memoryRecord(key, windowMs).length;
+  const count = await recordHit(key, windowMs);
   return toResult(count - 1, maxAttempts, windowMs);
 }
 
-/** Records one attempt against `key` without returning/caring about the result. */
 async function record(key: string, windowMs: number): Promise<void> {
-  if (redisAvailable()) {
-    try {
-      await redisRecord(key, windowMs);
-      return;
-    } catch (err) {
-      markRedisDown(err);
-    }
-  }
-  memoryRecord(key, windowMs);
+  await recordHit(key, windowMs);
 }
 
 function ipKey(route: string, ip: string): string {
@@ -210,16 +117,7 @@ export async function recordAccountFailure(route: string, identifier: string): P
 /** Clears the account limit for `identifier` — call after a successful attempt so past failures don't linger. */
 export async function resetAccountRateLimit(route: string, identifier: string): Promise<void> {
   if (!identifier?.trim()) return;
-  const key = accountKey(route, identifier);
-  if (redisAvailable()) {
-    try {
-      await getProducerRedisConnection().del(key);
-      return;
-    } catch (err) {
-      markRedisDown(err);
-    }
-  }
-  memoryStore.delete(key);
+  await clearHits(accountKey(route, identifier));
 }
 
 /** Standard 429 JSON response with a Retry-After header. */

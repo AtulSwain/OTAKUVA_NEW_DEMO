@@ -181,3 +181,6 @@
 /* Writing a review blends in too: no card, just the underlined text box. */
 .writeCard, .writeCardEdit { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 @media (max-width: 640px) { .writeCard { padding: 0; border-radius: 0; } }
+
+/* Follow button beside the reviewer's name (2026-11-06). */
+.followSlot { display: inline-flex; margin-left: 2px; }

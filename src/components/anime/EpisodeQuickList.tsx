@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLibrary } from '../../context/LibraryContext';
 import { useToast } from '../../context/ToastContext';
-import { Check, ChevronDown, ChevronUp, Play, Tv } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, ChevronUp, Play, Tv } from 'lucide-react';
 import type { EpisodeRetentionSummary } from '../rating/EpisodeRetentionModal';
 import { RetentionBars } from './RetentionBars';
 import { retentionColor, retentionLabel, retentionSoftColor } from '../../lib/rating/retentionTone';
@@ -321,6 +321,14 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
     if (h < 48) return `${h}h ${mins % 60}m`;
     return `${Math.round(h / 24)} days`;
   };
+  // Release tracker: how many episodes are out so far ("3 / 12"), and
+  // "Complete" once the last one has aired. Only real counts — the aired
+  // number comes from getEpisodeReleaseState, the total from the provider.
+  const releaseTotal = ratingSummary?.total ?? declaredCount ?? null;
+  const releaseComplete = releaseTotal !== null && released >= releaseTotal && !nextUp;
+  const showRelease =
+    !!ratingSummary && released > 0 && normalizedSeasons.length <= 1 &&
+    (!!ratingSummary.airing || !!nextUp || (releaseTotal !== null && releaseTotal > 1));
   const isFresh = (ep: EpisodeItem) => {
     if (!ep.airedAt || nowMs === null) return false;
     const t = new Date(ep.airedAt).getTime();
@@ -554,6 +562,54 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
               {(season.episodeCount ?? 0) > 0 && <span className={styles.tabEpCount}>{season.episodeCount} eps</span>}
             </button>
           ))}
+        </div>
+      )}
+
+      {showRelease && (
+        <div className={`${styles.release} ${releaseComplete ? styles.releaseDone : ''}`} aria-label="Episode release progress">
+          <div className={styles.releaseHead}>
+            <span className={styles.releaseLabel}>
+              {releaseComplete ? (
+                <>
+                  <CheckCircle2 size={14} aria-hidden="true" /> Complete
+                </>
+              ) : (
+                <>
+                  <i className={styles.liveDot} aria-hidden="true" /> {ratingSummary?.airing || nextUp ? 'Airing weekly' : 'Episodes out'}
+                </>
+              )}
+            </span>
+            <span className={styles.releaseCount} aria-live="polite">
+              <strong key={released}>{released}</strong>
+              {releaseTotal !== null ? <span>/ {releaseTotal}</span> : null}
+              <span className={styles.releaseUnit}>{releaseComplete ? 'episodes, all out' : `episode${released === 1 ? '' : 's'} out`}</span>
+            </span>
+            <span className={styles.releaseNext}>
+              {releaseComplete
+                ? `All ${releaseTotal} episodes have aired`
+                : nextUp
+                ? `Episode ${nextUp.number}${countdown(nextUp.airingAt) ? ` · in ${countdown(nextUp.airingAt)}` : ''}`
+                : releaseTotal === null
+                ? 'Total not announced yet'
+                : `${releaseTotal - released} to go`}
+            </span>
+          </div>
+          {releaseTotal !== null && releaseTotal <= 60 ? (
+            <div className={styles.releaseStrip} aria-hidden="true">
+              {Array.from({ length: releaseTotal }, (_, i) => i + 1).map((n) => (
+                <span
+                  key={n}
+                  className={n <= released ? styles.relOut : nextUp && n === nextUp.number ? styles.relNext : styles.relLater}
+                  style={{ ['--i' as string]: n } as React.CSSProperties}
+                  title={n <= released ? `Episode ${n} · out` : nextUp && n === nextUp.number ? `Episode ${n} · next` : `Episode ${n}`}
+                />
+              ))}
+            </div>
+          ) : releaseTotal !== null ? (
+            <div className={styles.releaseBar} aria-hidden="true">
+              <span style={{ width: `${Math.min(100, (released / releaseTotal) * 100)}%` }} />
+            </div>
+          ) : null}
         </div>
       )}
 

@@ -17,7 +17,9 @@ const formatDate = (iso: string) =>
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const list = await getSharedList(params.token);
-  if (!list) return { title: 'List not found', robots: { index: false } };
+  // notFound() here (not only in the page): metadata resolves before the
+  // loading skeleton streams, so the response is a real 404, not a 200.
+  if (!list) notFound();
   const title = `${list.name} — ${list.items.length} anime by @${list.owner.username}`;
   const description =
     list.description ||

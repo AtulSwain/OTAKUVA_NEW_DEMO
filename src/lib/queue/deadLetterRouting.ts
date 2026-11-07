@@ -14,7 +14,7 @@
  * originated from a direct fetch or an exhausted queue job.
  */
 
-import { prisma } from '../prisma';
+import { recordDeadLetter } from '../deadLetter';
 import { logger } from '../logger';
 
 export interface DeadLetterFromJobInput {
@@ -26,7 +26,7 @@ export interface DeadLetterFromJobInput {
 
 export async function routeExhaustedJobToDeadLetter(input: DeadLetterFromJobInput) {
   try {
-    await prisma.deadLetterQueue.create({ data: input });
+    await recordDeadLetter(input);
   } catch (e) {
     logger.error('failed to write DeadLetterQueue row', {
       error: e,

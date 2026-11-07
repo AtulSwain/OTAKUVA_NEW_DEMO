@@ -232,7 +232,7 @@ gaps against later phases, from the last audit (2026-08-28):
   `src/app/api/people/route.ts` — both now go through
   `src/lib/fuzzySearch.ts` (Postgres full-text + pg_trgm, case-insensitive
   by construction and typo-tolerant besides — see
-  `docs/production/SEARCH.md`). **Still not fixed, flagged for review
+  `docs/production/SEARCH.md`). **(Search boxes and filters below fixed 2026-11-06 — see the site-wide pass entry; matchers left exact.)** **Still not fixed, flagged for review
   instead** — 27 more files use `contains`/`startsWith`/`endsWith`
   without `mode: 'insensitive'`, found via
   `grep -rln "contains:\|startsWith:\|endsWith:" src`: `src/app/api/people/[slug]/route.ts`,
@@ -251,7 +251,7 @@ gaps against later phases, from the last audit (2026-08-28):
   matching, entity-resolution matchers) may have specifically wanted
   exact-case substring matching, which needs a case-by-case read, not a
   mechanical find/replace across 29 files under a schema-migration task.
-- **Character search doesn't exist** (found during the 2026-09-16 search
+- ~~**Character search doesn't exist**~~ — built 2026-11-06 (see the site-wide pass entry below). (Found during the 2026-09-16 search
   audit above): `GET /api/characters/[slug]` only does an exact
   slug/id/name lookup; there's no `GET /api/characters?q=` and the global
   search widget (`/api/search/route.ts`) never queries `Character` at
@@ -585,7 +585,7 @@ gaps against later phases, from the last audit (2026-08-28):
     (always empty) → `mode: 'insensitive'`; "Finished" status filter
     missed Jikan's "Finished Airing". One status display vocabulary:
     `src/lib/anime/animeStatus.ts` ("Finished Airing" was shown as airing).
-  - *Known, not fixed*: dynamic `notFound()` pages return 200 (+noindex)
+  - *Known, not fixed* (still true 2026-11-06 — see the site-wide pass entry; needs the loading skeletons removed): dynamic `notFound()` pages return 200 (+noindex)
     because the root `loading.tsx` streams first — a framework-level fix.
 - **Custom lists (2026-10-17)** — user-made "libraries" like playlists, on
   the existing `UserList`/`UserListItem` tables plus one additive column,
@@ -681,7 +681,7 @@ gaps against later phases, from the last audit (2026-08-28):
   Watanabe, Kon — old seed rows) were deleted. `audit_catalog_duplicates.ts`
   also lists people with the same name + native name under different
   AniList ids (44) for review — not auto-merged, many are different people.
-  Not fixed: `Character` rows are still matched by name-only slug in
+  ~~Not fixed~~ (fixed 2026-11-06, `src/lib/characters/characterResolver.ts`): `Character` rows are still matched by name-only slug in
   `syncCharacters` (same class of bug; characters share names far more).
 - **Anime page "Discussion" + article likes/comments (2026-10-18)**: the
   bottom of every anime page is now `AnimeCommunityHub` (replaced the
@@ -2157,6 +2157,105 @@ gaps against later phases, from the last audit (2026-08-28):
   AnimeMetadataHistory as `trailer-anilist`): 2026-11-01 run added 170 —
   7,180 of 18,121 anime have a trailer; AniList has none for the rest.
   Re-run after big imports. Tests: `tests/trailer.test.ts`.
+- **Site-wide pass (2026-11-06, owner: "do all of these")** — migration
+  `20261106120000_rate_limit_hits` (additive; **apply on Neon with
+  `prisma migrate deploy`** — until then limits fall back to memory, nothing
+  breaks).
+  - *Rate limits are shared now*: `src/lib/security/sharedRateStore.ts` —
+    Redis when `REDIS_URL` is set, else Postgres table `RateLimitHit`, else
+    process memory. `authRateLimiter` (sign-in lockouts) and the new
+    `RateLimiter.check()` (async) use it; every write/upload/abuse-prone
+    route calls `await RateLimiter.check(...)`. The old sync
+    `checkRateLimit` stays only for high-volume reads (views, search,
+    username check). Hits older than a day are swept by the app.
+    `RATE_LIMIT_BACKEND=db|memory` forces a store (tests). Tests:
+    `tests/shared-rate-limit.test.ts`.
+  - *Case-insensitive search everywhere a person types*: 84 filters across
+    the 27 files listed in the Postgres note got `mode: 'insensitive'`.
+    Deliberately left exact: entity matchers (`newsEntityMatcher`,
+    `newsService` title linking, `studioHistoryBackfill`, studio dedup,
+    `studioCmsService` similar-name check, canonical dedup migration), URL
+    checks, and staff-role literals in `/api/people`.
+  - *Missing pages*: missing anime/article/chart/list/person/studio pages
+    call `notFound()` in `generateMetadata`; client-rendered detail pages do
+    it in `src/lib/seo/pageSeo.ts` via `missing()`, which first repeats the
+    page API's own looser lookup (id / name / contains) so a page that would
+    still render is never treated as missing. Discussions are exempt
+    (private-community threads must keep working for members); a DB error
+    never counts as missing. Result: the real not-found page + noindex.
+    **The HTTP status is still 200** (checked live on Next 14.2.35): any
+    `loading.tsx` above a page (root, and `anime/[id]`) flushes the response
+    before metadata resolves. Getting a true 404 means removing those
+    skeletons (clicks would then show nothing until the page is ready) —
+    owner's call, not done.
+  - *Character search*: `src/lib/characters/characterSearch.ts`
+    (`searchCharacterIdsByName`, adult-only characters excluded, best-known
+    anime per character), `GET /api/characters?q=&limit=`, `characters` in
+    `/api/search` and a "Characters" group in the search box (People tab).
+  - *Characters matched by provider id*: `resolveCharacter`
+    (`src/lib/characters/characterResolver.ts`) — `externalId =
+    "<provider>:<id>"`, slug `<name>-c<id>` (AniList) / `-m<id>` (MAL), same
+    as the AniList import script; legacy bare-id rows adopted only when the
+    name matches; existing rows only get empty fields filled.
+    `syncCharacters` uses it. Tests: `tests/characters.test.ts`.
+  - *DeadLetterQueue*: `recordDeadLetter()` (`src/lib/deadLetter.ts`) bumps
+    the open row for the same (provider, entityType, externalId) instead of
+    creating another. `src/lib/deadLetterSweep.ts` (merge duplicates →
+    retry → archive) is the recurring worker job `dead-letter:sweep` (6h)
+    and what `scripts/retry_dead_letters.ts` now calls. Local DB had 6,561
+    duplicate open rows at the time — merged on the first sweep, not
+    deleted by hand.
+  - *Anime page*: calls its 11 route handlers in-process (imports their
+    `GET`, builds a `NextRequest` with the visitor's cookie) instead of
+    fetching over HTTP — same JSON, no network round trips or cold-start
+    timeouts.
+  - *Episode Guide release tracker*: "3 / 12 episodes out", one block per
+    episode (next one pulses), "Complete" in green when all have aired;
+    from `getEpisodeReleaseState` (`total`/`airing` now on the client
+    summary type). Rows slide in, bars fill, count pops.
+  - *Motion*: page changes fade in (AppShell, Web Animations API, opacity
+    only so fixed bars don't jump); homepage sections ease in on scroll
+    (CSS `animation-timeline: view()`, skipped where unsupported). All off
+    under reduced motion.
+  - *Follow*: Follow button beside the name on review cards
+    (`user.followedByViewer` on `GET /api/reviews` items). New `/following`
+    feed (`src/lib/social/followingFeed.ts`, `GET /api/feed/following`):
+    published reviews (spoiler text hidden), articles, PUBLIC non-empty
+    collections, readable discussions from people you follow. Linked in the
+    account menu and phone menu. Tests: `tests/following-feed.test.ts`.
+  - *Schedule → Coming Soon tab*: announced, not-yet-premiered anime
+    soonest first (`getAnnouncedAnime({ sort: 'premiere' })`,
+    `/api/announced?sort=premiere`), grouped by month, day countdown only
+    for exact dates, format chips. `/upcoming` itself is unchanged.
+  - *Lists*: Arrange mode on `/library/lists/[id]` — drag (mouse) or arrow
+    buttons (touch/keyboard), saved 0.5s after the last move.
+    `PUT /api/lists/:id/items { order }` must name exactly the list's
+    current anime. Tests: `tests/list-reorder.test.ts`.
+  - *Episodes without Redis*: Vercel Cron `/api/cron/episode-backfill`
+    (daily 04:00 UTC, 3 pages — a Jikan timeout costs 20s before failover)
+    plus `scripts/run_episode_backfill.ts [--batches= --pages=]` by hand;
+    same checkpoint as the worker job.
+  - *Offline*: `public/sw.js` v2 — pages network-only with
+    `public/offline.html` when offline (page HTML never cached), hashed
+    assets/icons/fonts cache-first, `/api/*` never cached.
+  - *Data audit*: `scripts/audit_data_quality.ts` (read-only). 2026-11-06
+    local result: `kite` still adult-genre/not-adult (needs the owner's
+    call), 16 anime with status "Cancelled" (now labelled "Cancelled" by
+    `formatAnimeStatus`, still unclassified), no person-photo or episode-
+    count problems left.
+  - *Clean-up*: global `h1` size fixed (24px; was the font-family token);
+    deleted the redirected old pages (`/explore`, `/discover`, `/airing`,
+    `/spaces`, `/anime/airing|rankings|seasonal`) and unused
+    `SpotlightHero`, `CommunityTeaser`, `RatingDistributionCard`,
+    `AnimeScoreCard`, `RetentionSlider`, person `CreditsGrid` (all tracked
+    in git). Redirects in `next.config.mjs` still cover the old URLs.
+  - Not done here (owner or outside code): domain + support mail, legal
+    read, About-me text, season artwork, a clean Netflix logo, Redis /
+    store accounts, OG image generator (next/og crashed the Windows dev
+    worker before), the ANN feed from Vercel (needs Vercel-side logs),
+    characters for every anime (`scripts/import_characters_studios_anilist.ts
+    --apply` is resumable — run it on local and production), and the
+    remaining `console.*` → `logger` migration.
 - Real-world schedule spec: `docs/OTAKUVA_SCHEDULE_SPEC_v1.md` (AniList +
   AnimeSchedule.net dual-provider `ReleaseEvent` model, regional/sub/dub
   releases, delay tracking, admin conflict resolution). Not started.

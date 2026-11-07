@@ -33,76 +33,19 @@
  */
 
 import { prisma } from '../src/lib/prisma';
-import { syncEngine } from '../src/lib/syncEngine';
-import { MAX_RETRIES, archiveExpiredDeadLetters } from '../src/lib/deadLetter';
+import { runDeadLetterSweep } from '../src/lib/deadLetterSweep';
 
 const DEFAULT_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
-const BATCH_SIZE = 2000; // matches the sweep size the old inline RETRY_FAILED=1 mode used
 
-type DeadLetterRow = Awaited<ReturnType<typeof prisma.deadLetterQueue.findMany>>[number];
-
-async function retryOne(row: DeadLetterRow): Promise<'recovered' | 'failed' | 'unsupported'> {
-  if (row.provider === 'jikan' && row.entityType === 'ANIME') {
-    const malId = parseInt(row.externalId, 10);
-    if (!Number.isFinite(malId)) return 'failed';
-    const result = await syncEngine.ingestAnimeByMalId(malId);
-    return result ? 'recovered' : 'failed';
-  }
-  return 'unsupported';
-}
-
+// The sweep itself lives in src/lib/deadLetterSweep.ts (2026-11-06) so the
+// worker can also run it as the recurring 'dead-letter:sweep' job.
 export async function runSweep(): Promise<void> {
   const startedAt = Date.now();
   console.log(`[retry_dead_letters] sweep starting ${new Date().toISOString()}`);
-
-  const pending = await prisma.deadLetterQueue.findMany({
-    where: { resolvedAt: null, attempts: { lt: MAX_RETRIES } },
-    orderBy: { lastAttemptAt: 'asc' },
-    take: BATCH_SIZE,
-  });
-  console.log(`[retry_dead_letters] ${pending.length} entries under the ${MAX_RETRIES}-attempt limit to retry.`);
-
-  let recovered = 0;
-  let failed = 0;
-  let unsupported = 0;
-
-  for (const row of pending) {
-    try {
-      const outcome = await retryOne(row);
-      if (outcome === 'recovered') {
-        recovered++;
-        await prisma.deadLetterQueue.update({ where: { id: row.id }, data: { resolvedAt: new Date() } });
-      } else if (outcome === 'unsupported') {
-        unsupported++;
-      } else {
-        failed++;
-        await prisma.deadLetterQueue.update({
-          where: { id: row.id },
-          data: { attempts: { increment: 1 }, lastAttemptAt: new Date() },
-        });
-      }
-    } catch (err: any) {
-      failed++;
-      await prisma.deadLetterQueue
-        .update({
-          where: { id: row.id },
-          data: { attempts: { increment: 1 }, lastAttemptAt: new Date(), error: err?.message || String(err) },
-        })
-        .catch(() => {});
-    }
-  }
-
+  const r = await runDeadLetterSweep();
   console.log(
-    `[retry_dead_letters] retry results: ${recovered} recovered, ${failed} still failing, ${unsupported} unsupported provider/entityType (left untouched).`
+    `[retry_dead_letters] merged ${r.collapsed} duplicate rows; retried ${r.examined}: ${r.recovered} recovered, ${r.failed} still failing, ${r.unsupported} unsupported; archived ${r.archived}.`
   );
-
-  const archiveResult = await archiveExpiredDeadLetters();
-  if (archiveResult.archivedCount > 0) {
-    console.log(`[retry_dead_letters] archived ${archiveResult.archivedCount} exhausted/expired entries -> ${archiveResult.archivePath}`);
-  } else {
-    console.log('[retry_dead_letters] nothing to archive this sweep.');
-  }
-
   console.log(`[retry_dead_letters] sweep done in ${((Date.now() - startedAt) / 1000).toFixed(1)}s.`);
 }
 

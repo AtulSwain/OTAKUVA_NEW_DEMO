@@ -3104,3 +3104,15 @@ model MonetizationSetting {
   commissionsEnabled Boolean  @default(false)
   updatedAt          DateTime @updatedAt
 }
+
+/// Shared rate-limit hits (2026-11-06): one row per counted request so limits
+/// hold across server instances without Redis. Read/written with plain SQL in
+/// src/lib/security/sharedRateStore.ts; old rows swept by the app.
+model RateLimitHit {
+  id  BigInt   @id @default(autoincrement())
+  key String
+  at  DateTime @default(now())
+
+  @@index([key, at])
+  @@index([at])
+}
