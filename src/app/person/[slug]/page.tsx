@@ -17,7 +17,9 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const p = await getCreatorProfile(params.slug);
-  if (!p) return { title: 'Creator not found', robots: { index: false } };
+  // notFound() here (not only in the page): metadata resolves before the
+  // loading skeleton streams, so the response is a real 404, not a 200.
+  if (!p) notFound();
   const role = p.occupations[0] || p.topRoles[0]?.role;
   const known = p.knownFor.slice(0, 3).map((c) => c.anime.title).join(', ');
   return {

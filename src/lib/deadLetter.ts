@@ -70,3 +70,34 @@ export async function archiveExpiredDeadLetters(): Promise<DeadLetterArchiveResu
 
   return { archivedCount: expired.length, archivePath };
 }
+
+export interface DeadLetterInput {
+  provider: string;
+  entityType: string;
+  externalId: string;
+  error: string;
+}
+
+/**
+ * Records a failure once per (provider, entityType, externalId) — 2026-11-06.
+ * Before, every failure `create`d a new row, so one MAL id failing on each
+ * catalog pass left a pile of duplicates (~16.5k ids across 23k rows). Now
+ * an open (unresolved) row for the same item is bumped instead: attempts +1,
+ * latest error, new lastAttemptAt. A resolved row is left as history and a
+ * fresh one is opened.
+ */
+export async function recordDeadLetter(input: DeadLetterInput): Promise<void> {
+  const open = await prisma.deadLetterQueue.findFirst({
+    where: { provider: input.provider, entityType: input.entityType, externalId: input.externalId, resolvedAt: null },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+  if (open) {
+    await prisma.deadLetterQueue.update({
+      where: { id: open.id },
+      data: { error: input.error.slice(0, 2000), attempts: { increment: 1 }, lastAttemptAt: new Date() },
+    });
+    return;
+  }
+  await prisma.deadLetterQueue.create({ data: { ...input, error: input.error.slice(0, 2000) } });
+}

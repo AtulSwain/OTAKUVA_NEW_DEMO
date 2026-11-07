@@ -8,6 +8,7 @@ import { COMMON_TIMEZONES } from '../../lib/engine/schedule/scheduleTimezone';
 import { AnimeImage } from '../../components/anime/AnimeImage';
 import { streamingBrandColor } from '../../components/schedule/streamingBrands';
 import styles from './schedule.module.css';
+import { ComingSoon } from './ComingSoon';
 
 interface EnrichedScheduleItem {
   id: string;
@@ -43,6 +44,7 @@ const PRESET_TABS = [
   { key: 'this_week', label: 'This Week' },
   { key: 'upcoming', label: 'Next 90 Days' },
   { key: 'up_next', label: 'Up Next for You' },
+  { key: 'coming_soon', label: 'Coming Soon' },
 ];
 
 const PAGE_SIZE = 200;
@@ -140,6 +142,12 @@ export default function SchedulePage() {
   }, []);
 
   const loadSchedule = useCallback(async () => {
+    // Coming Soon has its own list (ComingSoon.tsx), not episode times.
+    if (activeTab === 'coming_soon') {
+      setSchedules([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setLoadError(false);
     try {
@@ -328,6 +336,10 @@ export default function SchedulePage() {
         </div>
       )}
 
+      {activeTab === 'coming_soon' ? (
+        <ComingSoon />
+      ) : (
+      <>
       <div className={styles.filterBar}>
         {activeTab !== 'this_week' && activeTab !== 'up_next' && (
           <div className={styles.statusChips}>
@@ -569,6 +581,8 @@ export default function SchedulePage() {
             </>
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );

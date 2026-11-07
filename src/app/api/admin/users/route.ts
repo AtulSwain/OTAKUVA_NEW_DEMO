@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
       where: q
         ? {
             OR: [
-              { username: { contains: q } },
-              { email: { contains: q } },
+              { username: { contains: q, mode: 'insensitive' } },
+              { email: { contains: q, mode: 'insensitive' } },
             ],
           }
         : undefined,

@@ -103,7 +103,7 @@ export class SourceRegistryService {
     const cleanDomain = domain.toLowerCase().replace(/^www\./, '');
     const provider = await prisma.newsProvider.findFirst({
       where: {
-        domain: { contains: cleanDomain },
+        domain: { contains: cleanDomain, mode: 'insensitive' },
         active: true,
       },
     });

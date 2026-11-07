@@ -120,14 +120,14 @@ export class StudioCmsService {
 
     if (searchStr) {
       where.OR = [
-        { name: { contains: searchStr } },
-        { nativeName: { contains: searchStr } },
-        { romanizedName: { contains: searchStr } },
-        { alternativeNamesJson: { contains: searchStr } },
-        { externalId: { contains: searchStr } },
-        { city: { contains: searchStr } },
-        { animeStudios: { some: { anime: { canonicalTitle: { contains: searchStr } } } } },
-        { staffRelations: { some: { person: { name: { contains: searchStr } } } } },
+        { name: { contains: searchStr, mode: 'insensitive' } },
+        { nativeName: { contains: searchStr, mode: 'insensitive' } },
+        { romanizedName: { contains: searchStr, mode: 'insensitive' } },
+        { alternativeNamesJson: { contains: searchStr, mode: 'insensitive' } },
+        { externalId: { contains: searchStr, mode: 'insensitive' } },
+        { city: { contains: searchStr, mode: 'insensitive' } },
+        { animeStudios: { some: { anime: { canonicalTitle: { contains: searchStr, mode: 'insensitive' } } } } },
+        { staffRelations: { some: { person: { name: { contains: searchStr, mode: 'insensitive' } } } } },
       ];
     }
 

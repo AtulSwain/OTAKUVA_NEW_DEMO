@@ -93,9 +93,9 @@ export class StudioPeopleService {
     if (queryStr) {
       where.person = {
         OR: [
-          { name: { contains: queryStr } },
-          { nameKanji: { contains: queryStr } },
-          { about: { contains: queryStr } },
+          { name: { contains: queryStr, mode: 'insensitive' } },
+          { nameKanji: { contains: queryStr, mode: 'insensitive' } },
+          { about: { contains: queryStr, mode: 'insensitive' } },
         ],
       };
     }

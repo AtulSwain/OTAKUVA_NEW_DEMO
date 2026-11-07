@@ -19,7 +19,10 @@ export const dynamic = 'force-dynamic';
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const article = await getArticleBySlug(params.slug).catch(() => null);
+  const article = await getArticleBySlug(params.slug).catch(() => undefined);
+  // notFound() here (not only in the page): metadata resolves before the
+  // loading skeleton streams, so the response is a real 404, not a 200.
+  if (article === null) notFound();
   return article
     ? { title: `${article.title}`, description: article.summary }
     : { title: 'Article not found' };

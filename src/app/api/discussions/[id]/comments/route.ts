@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const authUser = await requireVerifiedUser(request);
   if (authUser instanceof NextResponse) return authUser;
 
-  const rate = RateLimiter.checkRateLimit('COMMENTS', authUser.id);
+  const rate = await RateLimiter.check('COMMENTS', authUser.id);
   if (!rate.allowed) {
     return NextResponse.json(
       { error: 'You are commenting too quickly. Please wait a moment.' },

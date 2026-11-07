@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   try {
     const user = await requireVerifiedUser(request);
     if (user instanceof NextResponse) return user;
-    const rate = RateLimiter.checkRateLimit('COMMUNITY', `episode-rating:${user.id}`);
+    const rate = await RateLimiter.check('COMMUNITY', `episode-rating:${user.id}`);
     if (!rate.allowed) return NextResponse.json({ error: 'You are rating too quickly. Please wait a moment.' }, { status: 429 });
     const body = await request.json().catch(() => ({}));
     if (body && Object.prototype.hasOwnProperty.call(body, 'retention')) {

@@ -95,14 +95,14 @@ export class StudioNewsService {
     };
 
     if (category && category !== 'ALL' && category !== 'All') {
-      whereArticle.category = { contains: category.toUpperCase() };
+      whereArticle.category = { contains: category.toUpperCase(), mode: 'insensitive' };
     }
 
     if (queryStr) {
       whereArticle.OR = [
-        { title: { contains: queryStr } },
-        { summary: { contains: queryStr } },
-        { content: { contains: queryStr } },
+        { title: { contains: queryStr, mode: 'insensitive' } },
+        { summary: { contains: queryStr, mode: 'insensitive' } },
+        { content: { contains: queryStr, mode: 'insensitive' } },
       ];
     }
 

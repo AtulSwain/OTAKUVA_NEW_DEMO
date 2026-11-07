@@ -250,7 +250,7 @@ export async function redeemInvitation(
     throw new InviteError(400, 'KEY_REQUIRED', 'Enter the access key you were given.');
   }
   for (const id of [`user:${userId}`, `invite:${invitationId}`]) {
-    const limit = RateLimiter.checkRateLimit('INVITE_KEY', id, id.startsWith('invite:') ? { maxRequests: 30 } : undefined);
+    const limit = await RateLimiter.check('INVITE_KEY', id, id.startsWith('invite:') ? { maxRequests: 30 } : undefined);
     if (!limit.allowed) {
       throw new InviteError(429, 'TOO_MANY_ATTEMPTS', `Too many attempts. Try again in ${Math.ceil((limit.retryAfterSec ?? 60) / 60)} min.`);
     }

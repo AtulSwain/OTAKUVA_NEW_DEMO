@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   try {
     const user = await requireVerifiedUser(request);
     if (user instanceof NextResponse) return user;
-    const rate = RateLimiter.checkRateLimit('COMMUNITY', `vibe:${user.id}`);
+    const rate = await RateLimiter.check('COMMUNITY', `vibe:${user.id}`);
     if (!rate.allowed) return NextResponse.json({ error: 'You are rating too quickly. Please wait a moment.' }, { status: 429 });
     const anime = await resolveAnime(params.id);
     if (!anime) return NextResponse.json({ error: 'Anime not found' }, { status: 404 });

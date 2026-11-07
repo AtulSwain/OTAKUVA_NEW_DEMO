@@ -288,11 +288,11 @@ export class StudioService {
 
     if (queryStr) {
       where.OR = [
-        { name: { contains: queryStr } },
-        { nativeName: { contains: queryStr } },
-        { romanizedName: { contains: queryStr } },
-        { slug: { contains: queryStr.toLowerCase() } },
-        { alternativeNamesJson: { contains: queryStr } },
+        { name: { contains: queryStr, mode: 'insensitive' } },
+        { nativeName: { contains: queryStr, mode: 'insensitive' } },
+        { romanizedName: { contains: queryStr, mode: 'insensitive' } },
+        { slug: { contains: queryStr.toLowerCase(), mode: 'insensitive' } },
+        { alternativeNamesJson: { contains: queryStr, mode: 'insensitive' } },
       ];
     }
 
@@ -619,10 +619,10 @@ export class StudioService {
     const studios = await prisma.studio.findMany({
       where: {
         OR: [
-          { name: { contains: q } },
-          { nativeName: { contains: q } },
-          { slug: { contains: q.toLowerCase() } },
-          { alternativeNamesJson: { contains: q } },
+          { name: { contains: q, mode: 'insensitive' } },
+          { nativeName: { contains: q, mode: 'insensitive' } },
+          { slug: { contains: q.toLowerCase(), mode: 'insensitive' } },
+          { alternativeNamesJson: { contains: q, mode: 'insensitive' } },
         ],
         publicationState: { in: ['PUBLISHED', 'DRAFT'] },
       },

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Authentication required to upload' }, { status: 401 });
   }
 
-  const rate = RateLimiter.checkRateLimit('MEDIA_UPLOAD', authUser.id);
+  const rate = await RateLimiter.check('MEDIA_UPLOAD', authUser.id);
   if (!rate.allowed) {
     return NextResponse.json(
       { error: 'Too many uploads. Please wait a minute and try again.' },

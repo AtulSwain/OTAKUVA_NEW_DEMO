@@ -859,3 +859,19 @@
   .page .genreRail { grid-auto-columns: 196px; gap: 12px; }
   .page .genreName { font-size: 18px; }
 }
+
+/* Fluid scroll (2026-11-06): homepage sections ease in as they scroll into
+   view. Scroll-driven CSS only — browsers without support (or with reduced
+   motion) show every section as before; the first two never animate. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .page .main > :nth-child(n + 3) {
+      animation: homeReveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+  }
+}
+@keyframes homeReveal {
+  from { opacity: 0; transform: translateY(18px); }
+}

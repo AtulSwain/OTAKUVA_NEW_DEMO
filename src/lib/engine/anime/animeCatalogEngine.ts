@@ -76,7 +76,7 @@ export class AnimeCatalogEngine {
       andClauses.push({
         animeGenres: {
           some: {
-            genre: { name: { contains: filters.genre } },
+            genre: { name: { contains: filters.genre, mode: 'insensitive' } },
           },
         },
       });
@@ -87,7 +87,7 @@ export class AnimeCatalogEngine {
       andClauses.push({
         animeThemes: {
           some: {
-            theme: { name: { contains: filters.theme } },
+            theme: { name: { contains: filters.theme, mode: 'insensitive' } },
           },
         },
       });
@@ -98,7 +98,7 @@ export class AnimeCatalogEngine {
       andClauses.push({
         animeStudios: {
           some: {
-            studio: { name: { contains: filters.studio } },
+            studio: { name: { contains: filters.studio, mode: 'insensitive' } },
           },
         },
       });

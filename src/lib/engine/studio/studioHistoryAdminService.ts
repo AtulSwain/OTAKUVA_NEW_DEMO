@@ -49,10 +49,10 @@ export class StudioHistoryAdminService {
 
     if (queryStr) {
       where.OR = [
-        { title: { contains: queryStr } },
-        { shortDescription: { contains: queryStr } },
-        { fullDescription: { contains: queryStr } },
-        { source: { contains: queryStr } },
+        { title: { contains: queryStr, mode: 'insensitive' } },
+        { shortDescription: { contains: queryStr, mode: 'insensitive' } },
+        { fullDescription: { contains: queryStr, mode: 'insensitive' } },
+        { source: { contains: queryStr, mode: 'insensitive' } },
       ];
     }
 

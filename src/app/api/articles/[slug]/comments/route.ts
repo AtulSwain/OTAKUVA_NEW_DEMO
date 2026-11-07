@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, { params }: { params: { slug: s
   try {
     const authUser = await requireVerifiedUser(request);
     if (authUser instanceof NextResponse) return authUser;
-    const rate = RateLimiter.checkRateLimit('COMMUNITY', authUser.id);
+    const rate = await RateLimiter.check('COMMUNITY', authUser.id);
     if (!rate.allowed) return NextResponse.json({ error: 'You are commenting too fast. Please wait a moment.' }, { status: 429 });
     const payload = await request.json().catch(() => ({}));
     const comment = await createArticleComment(params.slug, { id: authUser.id, username: authUser.username, role: authUser.role }, payload?.body, payload?.parentId);

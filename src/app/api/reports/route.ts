@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const rate = RateLimiter.checkRateLimit('COMMUNITY', authUser.id);
+    const rate = await RateLimiter.check('COMMUNITY', authUser.id);
     if (!rate.allowed) {
       return NextResponse.json({ error: 'Too many reports. Please wait a moment.' }, { status: 429 });
     }

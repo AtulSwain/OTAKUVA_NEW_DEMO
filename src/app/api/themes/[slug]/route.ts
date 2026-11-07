@@ -17,7 +17,7 @@ export async function GET(
 
     const theme = await prisma.theme.findFirst({
       where: {
-        OR: [{ slug }, { name: { contains: slug } }],
+        OR: [{ slug }, { name: { contains: slug, mode: 'insensitive' } }],
       },
     });
 

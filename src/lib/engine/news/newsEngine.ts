@@ -105,7 +105,7 @@ export class NewsEngine {
     }
 
     if (sourceName) {
-      where.sourceName = { contains: sourceName };
+      where.sourceName = { contains: sourceName, mode: 'insensitive' };
     }
 
     if (clusterId) {
@@ -163,12 +163,12 @@ export class NewsEngine {
     if (searchQuery && searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       where.OR = [
-        { title: { contains: q } },
-        { summary: { contains: q } },
-        { author: { contains: q } },
-        { sourceName: { contains: q } },
-        { animeRelations: { some: { anime: { canonicalTitle: { contains: q } } } } },
-        { studioRelations: { some: { studio: { name: { contains: q } } } } },
+        { title: { contains: q, mode: 'insensitive' } },
+        { summary: { contains: q, mode: 'insensitive' } },
+        { author: { contains: q, mode: 'insensitive' } },
+        { sourceName: { contains: q, mode: 'insensitive' } },
+        { animeRelations: { some: { anime: { canonicalTitle: { contains: q, mode: 'insensitive' } } } } },
+        { studioRelations: { some: { studio: { name: { contains: q, mode: 'insensitive' } } } } },
       ];
     }
 

@@ -25,5 +25,9 @@ const LABELS: Record<AiringStatus, string> = {
 /** Display label, or null when the status is unknown (nothing is assumed). */
 export function formatAnimeStatus(raw?: string | null): string | null {
   const s = classifyAnimeStatus(raw);
-  return s ? LABELS[s] : null;
+  if (s) return LABELS[s];
+  // AniList's CANCELLED (16 anime, 2026-11-06): labelled as such, but not
+  // classified — it isn't airing, finished or upcoming for any logic.
+  if (/^cancel+ed$/i.test(String(raw || '').trim())) return 'Cancelled';
+  return null;
 }

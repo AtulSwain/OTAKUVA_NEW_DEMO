@@ -54,6 +54,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
     news: any[];
     communities: any[];
     franchises: any[];
+    characters?: any[];
   }>({
     anime: [],
     studios: [],
@@ -61,6 +62,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
     news: [],
     communities: [],
     franchises: [],
+    characters: [],
   });
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -170,6 +172,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
   const visibleAnime = activeTab === 'ALL' || activeTab === 'ANIME' ? data.anime : [];
   const visibleStudios = activeTab === 'ALL' || activeTab === 'STUDIOS' ? data.studios : [];
   const visiblePeople = activeTab === 'ALL' || activeTab === 'PEOPLE' ? data.people : [];
+  const visibleCharacters = activeTab === 'ALL' || activeTab === 'PEOPLE' ? (data.characters || []) : [];
   const visibleNews = activeTab === 'ALL' || activeTab === 'NEWS' ? data.news : [];
   const visibleCommunities = activeTab === 'ALL' || activeTab === 'SPACES' ? data.communities : [];
   // Franchise has no dedicated tab (a small, secondary result type) — shown
@@ -186,6 +189,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
   visibleAnime.forEach((a) => flatItems.push({ id: `anime_${a.id}`, href: `/anime/${a.slug || a.id}` }));
   visibleStudios.forEach((s) => flatItems.push({ id: `studio_${s.id}`, href: `/studios/${s.slug || s.id}` }));
   visiblePeople.forEach((p) => flatItems.push({ id: `person_${p.id}`, href: `/people/${p.slug || p.id}` }));
+  visibleCharacters.forEach((c) => flatItems.push({ id: `char_${c.id}`, href: `/character/${c.slug || c.id}` }));
   visibleNews.forEach((n) => flatItems.push({ id: `news_${n.id}`, href: `/news/${n.slug || n.id}` }));
   visibleCommunities.forEach((c) => flatItems.push({ id: `comm_${c.id}`, href: `/community/${c.slug || c.id}` }));
   visibleFranchises.forEach((f) => flatItems.push({ id: `franchise_${f.id}`, href: `/franchise/${f.slug || f.id}` }));
@@ -220,7 +224,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
   if (!isOpen) return null;
 
   const totalResultsCount =
-    visibleAnime.length + visibleStudios.length + visiblePeople.length + visibleNews.length + visibleCommunities.length + visibleFranchises.length;
+    visibleAnime.length + visibleStudios.length + visiblePeople.length + visibleCharacters.length + visibleNews.length + visibleCommunities.length + visibleFranchises.length;
 
   return (
     <div className={styles.backdrop} onClick={onClose} role="dialog" aria-modal="true" aria-label="Search">
@@ -293,7 +297,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
             className={`${styles.tabBtn} ${activeTab === 'PEOPLE' ? styles.tabBtnActive : ''}`}
             onClick={() => setActiveTab('PEOPLE')}
           >
-            Artists {data.people?.length > 0 ? `(${data.people.length})` : ''}
+            People {data.people?.length + (data.characters?.length ?? 0) > 0 ? `(${data.people.length + (data.characters?.length ?? 0)})` : ''}
           </button>
           <button
             type="button"
@@ -545,6 +549,42 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
                       <div className={styles.resultMeta}>
                         <span className={styles.metaBadge}>Person</span>
                         <span>{person.primaryRole || 'Staff & Cast'}</span>
+                      </div>
+                    </div>
+                    <ArrowRight size={14} className={styles.itemArrow} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Characters (2026-11-06) */}
+          {visibleCharacters.length > 0 && (
+            <div className={styles.resultGroup}>
+              <span className={styles.groupHeading}>Characters</span>
+              {visibleCharacters.map((c) => {
+                const itemIndex = flatItems.findIndex((x) => x.id === `char_${c.id}`);
+                const isSelected = selectedIndex === itemIndex;
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => handleItemClick(`/character/${c.slug || c.id}`)}
+                    role="option"
+                    aria-selected={isSelected}
+                    data-active={isSelected ? 'true' : undefined}
+                    className={`${styles.resultItem} ${isSelected ? styles.resultItemActive : ''}`}
+                  >
+                    <div
+                      className={styles.resultAvatar}
+                      style={c.imageUrl ? { backgroundImage: `url("${c.imageUrl}")`, backgroundSize: 'cover', backgroundPosition: 'center top' } : undefined}
+                    >
+                      {!c.imageUrl && <Users2 size={16} />}
+                    </div>
+                    <div className={styles.resultInfo}>
+                      <span className={styles.resultTitle}>{sanitizePublicEntityName(c.name)}</span>
+                      <div className={styles.resultMeta}>
+                        <span className={styles.metaBadge}>Character</span>
+                        {c.anime && <span>{c.anime.title}</span>}
                       </div>
                     </div>
                     <ArrowRight size={14} className={styles.itemArrow} />

@@ -41,6 +41,7 @@ const AIRING_SCHEDULE_INTERVAL_MS = 6 * 60 * 60_000; // AniList-backed; less fre
 // headroom so ticks don't pile up in the queue (Worker concurrency is 1;
 // see scripts/worker.ts) if a batch runs long under provider backoff.
 const EPISODE_BACKFILL_INTERVAL_MS = 2 * 60_000;
+const DEAD_LETTER_SWEEP_INTERVAL_MS = 6 * 60 * 60_000;
 
 export async function registerRecurringJobs() {
   const queue = getSyncQueue();
@@ -73,6 +74,13 @@ export async function registerRecurringJobs() {
     'recurring:badges-maturation',
     { every: BADGE_RULES.job.intervalMinutes * 60_000 },
     { name: 'badges:maturation', data: {} }
+  );
+
+  // DeadLetterQueue sweep (2026-11-06; was only the hand-run retry_dead_letters.ts).
+  await queue.upsertJobScheduler(
+    'recurring:dead-letter-sweep',
+    { every: DEAD_LETTER_SWEEP_INTERVAL_MS },
+    { name: 'dead-letter:sweep', data: {} }
   );
 
   logger.info('recurring jobs registered', {

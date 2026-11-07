@@ -1,4 +1,18 @@
+import { notFound } from 'next/navigation';
 import { getRequestOrigin, getForwardedCookieHeader } from '../../../lib/server/requestContext';
+import { headers } from 'next/headers';
+import { NextRequest } from 'next/server';
+import { GET as animeGET } from '../../api/anime/[id]/route';
+import { GET as charactersGET } from '../../api/anime/[id]/characters/route';
+import { GET as staffGET } from '../../api/anime/[id]/staff/route';
+import { GET as relationsGET } from '../../api/anime/[id]/relations/route';
+import { GET as ratingSummaryGET } from '../../api/anime/[id]/rating-summary/route';
+import { GET as ratingGET } from '../../api/anime/[id]/rating/route';
+import { GET as discussionsGET } from '../../api/discussions/route';
+import { GET as reviewsGET } from '../../api/reviews/route';
+import { GET as newsGET } from '../../api/anime/[id]/news/route';
+import { GET as seasonsGET } from '../../api/anime/[id]/seasons/route';
+import { GET as episodesGET } from '../../api/anime/[id]/episodes/route';
 import AnimeDetailClient from './AnimeDetailClient';
 import { getSeasonSeries } from '../../../lib/catalog/seasonSeries';
 import { getAnimeFacts } from '../../../lib/anime/animeFacts';
@@ -8,7 +22,16 @@ import { animeJsonLd, animeMetadata, getAnimeSeo } from '../../../lib/seo/animeS
 import { JsonLd } from '../../../components/seo/JsonLd';
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  return animeMetadata(await getAnimeSeo(params.id).catch(() => null));
+  let seo: Awaited<ReturnType<typeof getAnimeSeo>> | undefined;
+  try {
+    seo = await getAnimeSeo(params.id);
+  } catch {
+    return animeMetadata(null); // DB hiccup: don't claim the page is missing
+  }
+  // notFound() here (not only in the page): metadata resolves before the
+  // loading skeleton streams, so the response is a real 404, not a 200.
+  if (!seo) notFound();
+  return animeMetadata(seo);
 }
 
 // Server component: fetches everything the detail view needs at request
@@ -22,8 +45,8 @@ function flattenRelations(raw: any[]): any[] {
     .filter((r) => r && (r.slug || r.id));
 }
 
-async function safeJson(res: PromiseSettledResult<Response>): Promise<any | null> {
-  if (res.status !== 'fulfilled' || !res.value.ok) return null;
+async function safeJson(res: PromiseSettledResult<Response | undefined | null>): Promise<any | null> {
+  if (res.status !== 'fulfilled' || !res.value || !res.value.ok) return null;
   try {
     return await res.value.json();
   } catch {
@@ -35,7 +58,15 @@ export default async function AnimeDetailPage({ params }: { params: { id: string
   const id = params.id;
   const origin = getRequestOrigin();
   const cookie = getForwardedCookieHeader();
-  const fetchOpts = { headers: { cookie }, cache: 'no-store' as const };
+  // Same Route Handlers as before, called in-process (2026-11-06) instead of
+  // over HTTP back to this server: identical logic and JSON, without 11
+  // network round trips — which were slow and, on a cold server, could time
+  // out and render the page as "not found".
+  const forwardedFor = headers().get('x-forwarded-for') || headers().get('x-real-ip') || '';
+  const req = (path: string) =>
+    new NextRequest(new URL(path, origin), { headers: { cookie, ...(forwardedFor ? { 'x-forwarded-for': forwardedFor } : {}) } });
+  const ctx = { params: { id } };
+  const call = (run: () => Promise<Response> | Response) => Promise.resolve().then(run);
 
   const [
     animeRes,
@@ -50,17 +81,17 @@ export default async function AnimeDetailPage({ params }: { params: { id: string
     seasonsRes,
     episodesRes,
   ] = await Promise.allSettled([
-    fetch(`${origin}/api/anime/${id}`, fetchOpts),
-    fetch(`${origin}/api/anime/${id}/characters`, fetchOpts),
-    fetch(`${origin}/api/anime/${id}/staff`, fetchOpts),
-    fetch(`${origin}/api/anime/${id}/relations`, fetchOpts),
-    fetch(`${origin}/api/anime/${id}/rating-summary`, fetchOpts),
-    fetch(`${origin}/api/anime/${id}/rating`, fetchOpts),
-    fetch(`${origin}/api/discussions?animeId=${id}`, fetchOpts),
-    fetch(`${origin}/api/reviews?animeId=${id}`, fetchOpts),
-    fetch(`${origin}/api/anime/${id}/news`, fetchOpts),
-    fetch(`${origin}/api/anime/${id}/seasons`, fetchOpts),
-    fetch(`${origin}/api/anime/${id}/episodes`, fetchOpts),
+    call(() => animeGET(req(`/api/anime/${id}`), ctx)),
+    call(() => charactersGET(req(`/api/anime/${id}/characters`), ctx)),
+    call(() => staffGET(req(`/api/anime/${id}/staff`), ctx)),
+    call(() => relationsGET(req(`/api/anime/${id}/relations`), ctx)),
+    call(() => ratingSummaryGET(req(`/api/anime/${id}/rating-summary`), ctx)),
+    call(() => ratingGET(req(`/api/anime/${id}/rating`), ctx)),
+    call(() => discussionsGET(req(`/api/discussions?animeId=${encodeURIComponent(id)}`))),
+    call(() => reviewsGET(req(`/api/reviews?animeId=${encodeURIComponent(id)}`))),
+    call(() => newsGET(req(`/api/anime/${id}/news`), ctx)),
+    call(() => seasonsGET(req(`/api/anime/${id}/seasons`), ctx)),
+    call(() => episodesGET(req(`/api/anime/${id}/episodes`), ctx)),
   ]);
 
   const animeData = await safeJson(animeRes);

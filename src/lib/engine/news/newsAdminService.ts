@@ -111,7 +111,7 @@ export class NewsAdminService {
       where.provider = provider.toUpperCase();
     }
     if (sourceName) {
-      where.sourceName = { contains: sourceName };
+      where.sourceName = { contains: sourceName, mode: 'insensitive' };
     }
     if (isFeatured !== undefined) {
       where.isFeatured = isFeatured;
@@ -126,12 +126,12 @@ export class NewsAdminService {
     if (search && search.trim()) {
       const q = search.trim();
       where.OR = [
-        { title: { contains: q } },
-        { adminOverrideTitle: { contains: q } },
-        { summary: { contains: q } },
+        { title: { contains: q, mode: 'insensitive' } },
+        { adminOverrideTitle: { contains: q, mode: 'insensitive' } },
+        { summary: { contains: q, mode: 'insensitive' } },
         { id: q },
         { externalId: q },
-        { sourceName: { contains: q } },
+        { sourceName: { contains: q, mode: 'insensitive' } },
       ];
     }
 

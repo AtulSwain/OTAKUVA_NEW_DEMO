@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const authUser = await requireVerifiedUser(request);
     if (authUser instanceof NextResponse) return authUser;
 
-    const rate = RateLimiter.checkRateLimit('COMMUNITY', authUser.id);
+    const rate = await RateLimiter.check('COMMUNITY', authUser.id);
     if (!rate.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please wait a moment.' }, { status: 429 });
     }

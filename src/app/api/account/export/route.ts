@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
     }
 
-    const rate = RateLimiter.checkRateLimit('ACCOUNT', authUser.id);
+    const rate = await RateLimiter.check('ACCOUNT', authUser.id);
     if (!rate.allowed) {
       return NextResponse.json(
         { error: 'Too many account requests. Please wait before trying again.' },

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const authUser = await requireVerifiedUser(request);
     if (authUser instanceof NextResponse) return authUser;
 
-    const rate = RateLimiter.checkRateLimit('COMMUNITY', `article:${authUser.id}`);
+    const rate = await RateLimiter.check('COMMUNITY', `article:${authUser.id}`);
     if (!rate.allowed) {
       return NextResponse.json({ error: 'You are posting too quickly. Please wait a moment.' }, { status: 429 });
     }

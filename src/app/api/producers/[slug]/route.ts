@@ -18,7 +18,7 @@ export async function GET(
           { slug },
           { id: slug },
           { name: slug },
-          { name: { contains: normalizedName } },
+          { name: { contains: normalizedName, mode: 'insensitive' } },
         ],
       },
       include: {

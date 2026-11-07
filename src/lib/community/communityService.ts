@@ -95,9 +95,9 @@ export async function listDiscoverableCommunities(
   if (query && query.trim()) {
     const q = query.trim().toLowerCase();
     where.OR = [
-      { name: { contains: q } },
-      { description: { contains: q } },
-      { slug: { contains: q } },
+      { name: { contains: q, mode: 'insensitive' } },
+      { description: { contains: q, mode: 'insensitive' } },
+      { slug: { contains: q, mode: 'insensitive' } },
     ];
   }
 

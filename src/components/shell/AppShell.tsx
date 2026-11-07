@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
@@ -51,6 +51,27 @@ const ShellContent: React.FC<AppShellProps> = ({ children }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
 
+  // Page change: the new page fades in instead of
+  // snapping in (2026-11-06). Web Animations API on the content wrapper, so
+  // nothing remounts and no layout state is lost. Off for reduced motion.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const firstPath = useRef(true);
+  useEffect(() => {
+    if (firstPath.current) {
+      firstPath.current = false;
+      return;
+    }
+    const el = contentRef.current;
+    if (!el || typeof el.animate !== 'function') return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    el.animate(
+      // Opacity only: a transform here would briefly re-anchor any
+      // position:fixed bar inside the page (sticky action bars, sheets).
+      [{ opacity: 0 }, { opacity: 1 }],
+      { duration: 280, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
+    );
+  }, [pathname]);
+
   // Global Keyboard shortcut listener: Cmd+K / Ctrl+K & Cmd+L / Ctrl+L
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -89,7 +110,7 @@ const ShellContent: React.FC<AppShellProps> = ({ children }) => {
 
           {/* 2. Main Content Viewport */}
           <main className={styles.contentArea}>
-            <div className={isBleed ? styles.contentBleed : isWide ? `${styles.contentInner} ${styles.contentWide}` : styles.contentInner}>{children}</div>
+            <div ref={contentRef} className={isBleed ? styles.contentBleed : isWide ? `${styles.contentInner} ${styles.contentWide}` : styles.contentInner}>{children}</div>
           </main>
 
           {/* 3. Dark Footer */}

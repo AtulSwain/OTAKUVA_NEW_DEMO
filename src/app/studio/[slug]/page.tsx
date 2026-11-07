@@ -26,7 +26,9 @@ const listJoin = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', '
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const s = await getStudioProfile(params.slug);
-  if (!s) return { title: 'Studio not found', robots: { index: false } };
+  // notFound() here (not only in the page): metadata resolves before the
+  // loading skeleton streams, so the response is a real 404, not a 200.
+  if (!s) notFound();
   const known = s.knownFor.slice(0, 3).map((w) => w.title).join(', ');
   return {
     title: `${s.name} — Animation Studio`,

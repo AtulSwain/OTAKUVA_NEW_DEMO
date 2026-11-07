@@ -9,7 +9,10 @@ import { ViewBeacon } from '../../../components/analytics/ViewBeacon';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const chart = await getPublishedChart(params.slug).catch(() => null);
+  const chart = await getPublishedChart(params.slug).catch(() => undefined);
+  // notFound() here (not only in the page): metadata resolves before the
+  // loading skeleton streams, so the response is a real 404, not a 200.
+  if (chart === null) notFound();
   if (!chart) return { title: 'Chart not found', robots: { index: false } };
   return { title: `${chart.title}`, description: chart.description || `${chart.items.length} anime ranked by the OTAKUVA team.` };
 }

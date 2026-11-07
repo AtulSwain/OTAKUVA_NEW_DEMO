@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/announced", "schedule": "30 3 * * *" }
+    { "path": "/api/cron/announced", "schedule": "30 3 * * *" },
+    { "path": "/api/cron/episode-backfill", "schedule": "0 4 * * *" }
   ]
 }

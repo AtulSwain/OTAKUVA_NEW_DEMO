@@ -194,8 +194,8 @@ export class NewsService {
     if (search && search.trim()) {
       const q = search.trim();
       where.OR = [
-        { title: { contains: q } },
-        { summary: { contains: q } },
+        { title: { contains: q, mode: 'insensitive' } },
+        { summary: { contains: q, mode: 'insensitive' } },
       ];
     }
 

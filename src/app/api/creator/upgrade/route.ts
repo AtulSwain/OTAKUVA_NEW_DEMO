@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireVerifiedUser(request);
     if (user instanceof NextResponse) return user;
-    if (!RateLimiter.checkRateLimit('ACCOUNT', `creator-upgrade:${user.id}`, { maxRequests: 10 }).allowed) {
+    if (!(await RateLimiter.check('ACCOUNT', `creator-upgrade:${user.id}`, { maxRequests: 10 })).allowed) {
       return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 });
     }
     const body = await request.json().catch(() => ({}));

@@ -27,7 +27,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   try {
     const user = await requireVerifiedUser(request);
     if (user instanceof NextResponse) return user;
-    const rate = RateLimiter.checkRateLimit('COMMUNITY', `hype:${user.id}`);
+    const rate = await RateLimiter.check('COMMUNITY', `hype:${user.id}`);
     if (!rate.allowed) return NextResponse.json({ error: 'Slow down a little and try again.' }, { status: 429 });
     const body = await request.json().catch(() => ({}));
     await setHype(user.id, params.id, body?.level);

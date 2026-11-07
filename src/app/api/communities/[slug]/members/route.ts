@@ -43,7 +43,7 @@ export async function GET(
 
     if (query && query.trim()) {
       where.user = {
-        username: { contains: query.trim() },
+        username: { contains: query.trim(), mode: 'insensitive' },
       };
     }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
+import { searchCharacters } from '../../../lib/characters/characterSearch';
 import { logger } from '../../../lib/logger';
 import { sanitizePublicEntityName } from '../../../lib/normalizers';
 import { matchKind, searchAnimeIdsByTitle, searchPersonIdsByName } from '../../../lib/fuzzySearch';
@@ -83,6 +84,7 @@ export async function GET(request: NextRequest) {
           logoUrl: s.imageUrl,
         })),
         people: [],
+        characters: [],
         news: recentNews.map((n) => ({
           id: n.id,
           slug: n.slug,
@@ -106,9 +108,11 @@ export async function GET(request: NextRequest) {
     // that missed anything misspelled. These need to resolve before the
     // anime/person findMany calls below (which just fetch the already-
     // ranked ids), so they run ahead of the rest of the Promise.all.
-    const [animeMatches, personMatches] = await Promise.all([
+    const [animeMatches, personMatches, characterResults] = await Promise.all([
       searchAnimeIdsByTitle(cleanQuery, TITLE_LIMIT * 2),
       searchPersonIdsByName(cleanQuery, 4),
+      // Characters (2026-11-06): best match first, with the anime they're from.
+      searchCharacters(cleanQuery, 4).catch(() => []),
     ]);
 
     // Search across 5 distinct canonical entity domains concurrently
@@ -273,6 +277,7 @@ export async function GET(request: NextRequest) {
         slug: f.slug,
         name: sanitizePublicEntityName(f.name),
       })),
+      characters: characterResults.map((c) => ({ ...c, name: sanitizePublicEntityName(c.name) })),
     });
   } catch (error) {
     logger.error('Search failed', { error: error as Error, component: 'api/search' });

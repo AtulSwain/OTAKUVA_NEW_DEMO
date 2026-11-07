@@ -119,9 +119,9 @@ export class NewsSearchService {
       const animeMatches = await prisma.anime.findMany({
         where: {
           OR: [
-            { canonicalTitle: { contains: rawQuery } },
-            ...tokens.map((t) => ({ canonicalTitle: { contains: t } })),
-            ...tokens.map((t) => ({ slug: { contains: t } })),
+            { canonicalTitle: { contains: rawQuery, mode: 'insensitive' } },
+            ...tokens.map((t) => ({ canonicalTitle: { contains: t, mode: 'insensitive' as const } })),
+            ...tokens.map((t) => ({ slug: { contains: t, mode: 'insensitive' as const } })),
           ],
         },
         select: { id: true },
@@ -133,14 +133,14 @@ export class NewsSearchService {
     // Keyword match conditions
     if (tokens.length > 0) {
       where.OR = [
-        { title: { contains: rawQuery } },
-        { summary: { contains: rawQuery } },
-        { sourceName: { contains: rawQuery } },
+        { title: { contains: rawQuery, mode: 'insensitive' } },
+        { summary: { contains: rawQuery, mode: 'insensitive' } },
+        { sourceName: { contains: rawQuery, mode: 'insensitive' } },
         ...(matchedAnimeIds.length > 0
           ? [{ animeRelations: { some: { animeId: { in: matchedAnimeIds } } } }]
           : []),
-        ...tokens.map((t) => ({ title: { contains: t } })),
-        ...tokens.map((t) => ({ summary: { contains: t } })),
+        ...tokens.map((t) => ({ title: { contains: t, mode: 'insensitive' as const } })),
+        ...tokens.map((t) => ({ summary: { contains: t, mode: 'insensitive' as const } })),
       ];
     }
 
@@ -281,8 +281,8 @@ export class NewsSearchService {
     const matchingAnime = await prisma.anime.findMany({
       where: {
         OR: [
-          { canonicalTitle: { contains: q } },
-          { slug: { contains: q } },
+          { canonicalTitle: { contains: q, mode: 'insensitive' } },
+          { slug: { contains: q, mode: 'insensitive' } },
         ],
       },
       select: { id: true, canonicalTitle: true, slug: true, posterUrl: true },
@@ -304,8 +304,8 @@ export class NewsSearchService {
     const matchingStudios = await prisma.studio.findMany({
       where: {
         OR: [
-          { name: { contains: q } },
-          { slug: { contains: q } },
+          { name: { contains: q, mode: 'insensitive' } },
+          { slug: { contains: q, mode: 'insensitive' } },
         ],
       },
       select: { id: true, name: true, slug: true, imageUrl: true },
@@ -328,7 +328,7 @@ export class NewsSearchService {
       where: {
         status: 'PUBLISHED',
         relevance: PUBLIC_RELEVANCE_WHERE,
-        OR: [{ title: { contains: q } }, { summary: { contains: q } }],
+        OR: [{ title: { contains: q, mode: 'insensitive' } }, { summary: { contains: q, mode: 'insensitive' } }],
       },
       select: { id: true, title: true, adminOverrideTitle: true, slug: true, imageUrl: true, sourceName: true },
       take: limit - suggestions.length,
