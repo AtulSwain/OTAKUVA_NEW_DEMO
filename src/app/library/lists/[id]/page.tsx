@@ -58,6 +58,12 @@ export default function ListDetailPage() {
   const [busy, setBusy] = useState(false);
   const [bannerOpen, setBannerOpen] = useState(false);
   const [bannerPick, setBannerPick] = useState<BannerChoice>(null);
+  // Arrange mode (2026-11-06): drag cards (mouse) or use the arrows (touch,
+  // keyboard). Saved a moment after the last move; rolled back on failure.
+  const [arranging, setArranging] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const saveTimer = useRef<number | null>(null);
+  const savedOrder = useRef<ListAnime[] | null>(null);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -140,12 +146,7 @@ export default function ListDetailPage() {
     }
   };
 
-  // Arrange mode (2026-11-06): drag cards (mouse) or use the arrows (touch,
-  // keyboard). Saved a moment after the last move; rolled back on failure.
-  const [arranging, setArranging] = useState(false);
-  const [dragId, setDragId] = useState<string | null>(null);
-  const saveTimer = useRef<number | null>(null);
-  const savedOrder = useRef<ListAnime[] | null>(null);
+  // Arrange mode helpers (state is declared at the top, before any early return).
 
   const saveOrder = (items: ListAnime[]) => {
     if (saveTimer.current) window.clearTimeout(saveTimer.current);

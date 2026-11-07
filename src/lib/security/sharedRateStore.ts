@@ -31,14 +31,14 @@ function memoryWindow(key: string, windowMs: number): number[] {
   return hits;
 }
 
-function useRedis() {
+function redisUsable() {
   // Tests run against a throwaway Postgres; keep them off a developer's Redis.
   if (process.env.RATE_LIMIT_BACKEND === 'db' || process.env.RATE_LIMIT_BACKEND === 'memory') return false;
   // Only an explicit REDIS_URL: local dev without Redis shouldn't pay
   // ioredis's retry delay before falling through to Postgres.
   return Boolean(process.env.REDIS_URL) && Date.now() >= redisDownUntil;
 }
-function useDb() {
+function dbUsable() {
   if (process.env.RATE_LIMIT_BACKEND === 'memory') return false;
   return Date.now() >= dbDownUntil;
 }
@@ -62,7 +62,7 @@ function maybeSweep() {
 /** Hits for `key` within the window, without adding one. */
 export async function peekHits(key: string, windowMs: number): Promise<number> {
   const since = Date.now() - windowMs;
-  if (useRedis()) {
+  if (redisUsable()) {
     try {
       const redis = getProducerRedisConnection();
       await redis.zremrangebyscore(key, 0, since);
@@ -71,7 +71,7 @@ export async function peekHits(key: string, windowMs: number): Promise<number> {
       down('redis', err);
     }
   }
-  if (useDb()) {
+  if (dbUsable()) {
     try {
       const rows = await prisma.$queryRaw<{ n: bigint }[]>`
         SELECT COUNT(*)::bigint AS n FROM "RateLimitHit" WHERE "key" = ${key} AND "at" > ${new Date(since)}`;
@@ -86,7 +86,7 @@ export async function peekHits(key: string, windowMs: number): Promise<number> {
 /** Adds one hit for `key` and returns the count within the window, including it. */
 export async function recordHit(key: string, windowMs: number): Promise<number> {
   const now = Date.now();
-  if (useRedis()) {
+  if (redisUsable()) {
     try {
       const redis = getProducerRedisConnection();
       await redis.zremrangebyscore(key, 0, now - windowMs);
@@ -97,7 +97,7 @@ export async function recordHit(key: string, windowMs: number): Promise<number> 
       down('redis', err);
     }
   }
-  if (useDb()) {
+  if (dbUsable()) {
     try {
       const rows = await prisma.$queryRaw<{ n: bigint }[]>`
         WITH ins AS (INSERT INTO "RateLimitHit" ("key", "at") VALUES (${key}, ${new Date(now)}) RETURNING 1)
@@ -117,7 +117,7 @@ export async function recordHit(key: string, windowMs: number): Promise<number> 
 /** Oldest hit time still inside the window (for an accurate Retry-After). */
 export async function oldestHit(key: string, windowMs: number): Promise<number | null> {
   const since = Date.now() - windowMs;
-  if (useRedis()) {
+  if (redisUsable()) {
     try {
       const first = await getProducerRedisConnection().zrangebyscore(key, since, '+inf', 'WITHSCORES', 'LIMIT', 0, 1);
       return first.length >= 2 ? Number(first[1]) : null;
@@ -125,7 +125,7 @@ export async function oldestHit(key: string, windowMs: number): Promise<number |
       down('redis', err);
     }
   }
-  if (useDb()) {
+  if (dbUsable()) {
     try {
       const rows = await prisma.$queryRaw<{ at: Date | null }[]>`
         SELECT MIN("at") AS at FROM "RateLimitHit" WHERE "key" = ${key} AND "at" > ${new Date(since)}`;
@@ -140,7 +140,7 @@ export async function oldestHit(key: string, windowMs: number): Promise<number |
 /** Forgets every hit for `key`. */
 export async function clearHits(key: string): Promise<void> {
   memory.delete(key);
-  if (useRedis()) {
+  if (redisUsable()) {
     try {
       await getProducerRedisConnection().del(key);
       return;
@@ -148,7 +148,7 @@ export async function clearHits(key: string): Promise<void> {
       down('redis', err);
     }
   }
-  if (useDb()) {
+  if (dbUsable()) {
     try {
       await prisma.$executeRaw`DELETE FROM "RateLimitHit" WHERE "key" = ${key}`;
     } catch (err) {
